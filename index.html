@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>店舗ポータル - ARENA Okegawa PORTAL</title>
+    <!-- Google Fonts の読み込み -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- PC表示時にスマホサイズで中央配置するためのフレームコンテナ -->
+    <div class="device-wrapper">
+        <div class="smartphone-frame">
+            <!-- インナー画面 -->
+            <div class="screen-content">
+                <!-- パスコードロック画面 -->
+                <div id="lock-screen" class="lock-screen-container">
+                    <div class="lock-screen-inner">
+                        <div class="lock-screen-logo">
+                            <span class="lock-icon">🔒</span>
+                        </div>
+                        <h2 class="lock-screen-title">ARENA SECURITY</h2>
+                        <p class="lock-screen-subtitle">SYSTEM ACCESS LOCKED</p>
+                        
+                        <div class="lock-screen-form">
+                            <input type="password" id="passcode-input" class="cyber-input-passcode" pattern="[0-9]*" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
+                            <button id="btn-unlock" class="cyber-btn btn-unlock">UNLOCK SYSTEM</button>
+                        </div>
+                        
+                        <div id="lock-screen-error" class="lock-error-msg"></div>
+                    </div>
+                </div>
+                
+                <!-- ステータスバー（擬似） -->
+                <div class="status-bar">
+                    <span class="status-carrier">ARENA-5G</span>
+                    <span class="status-clock" id="status-clock">21:06</span>
+                    <div class="status-icons">
+                        <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.07 19.58 10.48 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                        <svg viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+                    </div>
+                </div>
+
+                <!-- アプリヘッダー -->
+                <header class="app-header">
+                    <div class="header-main">
+                        <div class="brand">
+                            <span class="brand-sub">PORTAL APP</span>
+                            <h1 class="brand-main">ARENA　<span class="neon-text">Okegawa</span><br>PORTAL</h1>
+                        </div>
+                        <!-- 右側の会員獲得進捗ステータス -->
+                        <div class="header-stats">
+                            <div class="stats-title" style="font-size: 16px; color: var(--text-primary); font-weight: 700; text-align: right; margin-bottom: 2px; letter-spacing: 0.5px;">新規会員</div>
+                            <div class="stats-label">
+                                <span class="label-item">目標 <strong class="stats-num" id="member-target">--</strong>名</span>
+                                <span class="label-separator">/</span>
+                                <span class="label-item">獲得 <strong class="stats-num neon-emerald" id="member-current">--</strong>名<button class="btn-edit-inline" id="edit-member-btn" style="background:transparent; border:none; color:var(--theme-emerald); margin-left:4px; cursor:pointer; font-size:11px; padding:0 2px; display:inline-flex; align-items:center; vertical-align:middle;" title="獲得数を変更"><svg viewBox="0 0 24 24" style="width:12px; height:12px; fill:currentColor;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button></span>
+                            </div>
+                            <div class="stats-progress-bg">
+                                <div class="stats-progress-bar" id="member-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 日付表示エリア（時計機能廃止） -->
+                    <div class="time-panel">
+                        <div class="date-display" id="date-display">2026.05.24 [SUN]</div>
+                    </div>
+                </header>
+
+                <!-- メイン表示領域（スクロール可能） -->
+                <main class="app-body">
+                    
+                    <!-- 【タブ1：ホーム】 -->
+                    <section id="tab-home" class="tab-content active">
+                        <!-- 1. 伝達事項テキストエリア（重要ピン留め＆通常2段組） -->
+                        <div class="section-container">
+                            <div class="section-header">
+                                <span class="section-icon">🔔</span>
+                                <h2 id="memo-title-display">伝達事項</h2>
+                                <button class="btn-history-jump" id="btn-history-jump" title="履歴検索へ" style="background: transparent; border: none; color: var(--neon-blue); margin-left: auto; margin-right: 8px; cursor: pointer; display: flex; align-items: center; transition: all var(--transition-fast);">
+                                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                                </button>
+                                <button class="btn-edit-pencil" id="edit-memo-btn" title="伝達事項を編集">
+                                    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                </button>
+                            </div>
+                            
+                            <!-- ① 📌 重要・必読ピン留めエリア -->
+                            <div class="memo-pinned-container" id="memo-pinned-area" style="margin-bottom: 10px;">
+                                <div class="pinned-header">
+                                    <span class="pinned-icon">📌</span> 重要・必読の連絡
+                                </div>
+                                <textarea id="memo-pinned-textarea" class="memo-textarea-small" readonly placeholder="現在、重要なピン留め連絡はありません。">【重要なお知らせ】
+新台「CRネオサイバー」の稼働に伴う新台開放手順書が事務所デスクに配布されています。出勤スタッフは試打ち前に必ず目を通してください。</textarea>
+                            </div>
+                            
+                            <!-- ② 通常の伝達事項エリア（最新履歴） -->
+                            <div class="memo-area">
+                                <textarea id="memo-textarea" class="memo-textarea-small" readonly placeholder="通常の伝達事項はありません。">【通常の伝達事項】
+1. 拾得物（スマートキー）が3番通路付近でありました。台帳記入の上、事務所金庫に保管済みです。
+2. 今週のシフト変更希望は明日25日の午前中までに提出完了するようにお願いします。</textarea>
+                                <div class="memo-footer">
+                                    <span class="memo-status" id="memo-save-status">スプレッドシート同期中</span>
+                                    <span class="memo-timestamp" id="memo-time">最終更新: ----/--/-- --:--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. グリッド配置（2列）：4つの主要業務ボタン -->
+                        <div class="section-container">
+                            <div class="section-header">
+                                <span class="section-icon">⚡</span>
+                                <h2>クイック業務アクション</h2>
+                            </div>
+                            <div class="action-grid grid-2x2">
+                                <!-- お願いごと（遷移用アクション） -->
+                                <button class="action-btn cyan-theme" id="btn-trigger-requests" data-action="お願いごと">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/></svg>
+                                    </div>
+                                    <span class="btn-title">お願いごと</span>
+                                </button>
+                                
+                                <!-- 故障報告（遷移用アクション） -->
+                                <button class="action-btn red-theme" id="btn-trigger-troubles" data-action="故障報告">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                                    </div>
+                                    <span class="btn-title">故障報告</span>
+                                </button>
+
+                                <!-- スケジュール（URL遷移用アクション） -->
+                                <button class="action-btn gold-theme" data-action="スケジュール">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm-5-7H7v2h7v-2z"/></svg>
+                                    </div>
+                                    <span class="btn-title">スケジュール</span>
+                                </button>
+
+                                <!-- 曜日清掃・作業 -->
+                                <button class="action-btn emerald-theme" id="btn-trigger-cleanings" data-action="曜日清掃・作業">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M19.36 2.72L20.78 4.14 15.06 9.86 16.5 11.3 17.92 9.88 19.34 11.3 16.5 14.14 15.08 12.72 13.66 14.14 15.08 15.56 12.24 18.4 13.66 19.82 7.94 25.54 6.52 24.12 12.24 18.4 10.82 16.98 9.4 18.4 7.98 16.98 10.82 14.14 9.4 12.72 7.98 14.14 6.56 12.72 9.4 9.88 7.98 8.46 2.26 14.18.84 12.76 6.56 7.04 5.14 5.62 6.56 4.2 7.98 5.62 10.82 2.78 9.4 1.36 10.82-.06 12.24 1.36 9.4 4.2 10.82 5.62 12.24 4.2 13.66 5.62 10.82 8.46 12.24 9.88 19.36 2.72z"/></svg>
+                                    </div>
+                                    <span class="btn-title">曜日清掃・作業</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 3. グリッド配置（2列）：2つの管理・お客様関連ボタン -->
+                        <div class="section-container">
+                            <div class="section-header">
+                                <span class="section-icon">📋</span>
+                                <h2>管理・お客様関連</h2>
+                            </div>
+                            <div class="action-grid grid-2x1">
+                                <!-- 拾得台帳 -->
+                                <button class="action-btn purple-theme" data-action="拾得台帳">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
+                                    </div>
+                                    <span class="btn-title">拾得台帳</span>
+                                </button>
+
+                                <!-- お客様の声 -->
+                                <button class="action-btn pink-theme" data-action="お客様の声">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                                    </div>
+                                    <span class="btn-title">お客様の声</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 【タブ2：業務リンク集】（2列のスタイリッシュグリッド配置 - サブタイトル無し） -->
+                    <section id="tab-links" class="tab-content">
+                        <div class="section-container">
+                            <div class="section-header">
+                                <span class="section-icon">🔗</span>
+                                <h2>業務リンク集</h2>
+                            </div>
+                            
+                            <div class="action-grid grid-2x2">
+                                <!-- 1. シフト表 -->
+                                <button class="action-btn cyan-theme" data-action="シフト表">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M4 14h6v-4H4v4zm0 5h6v-4H4v4zM4 9h6V5H4v4zm8 5h6v-4h-6v4zm0 5h6v-4h-6v4zM12 5v4h6V5h-6z"/></svg>
+                                    </div>
+                                    <span class="btn-title">シフト表</span>
+                                </button>
+
+                                <!-- 2. シフト希望表 -->
+                                <button class="action-btn blue-theme" data-action="シフト希望表">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                                    </div>
+                                    <span class="btn-title">シフト希望表</span>
+                                </button>
+
+                                <!-- 3. 賞味期限アプリ -->
+                                <button class="action-btn gold-theme" data-action="賞味期限アプリ">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                                    </div>
+                                    <span class="btn-title">賞味期限アプリ</span>
+                                </button>
+
+                                <!-- 4. 車両申請フォーム -->
+                                <button class="action-btn emerald-theme" data-action="車両申請フォーム">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+                                    </div>
+                                    <span class="btn-title">車両申請フォーム</span>
+                                </button>
+
+                                <!-- 5. 備品チェック＆稟議 -->
+                                <button class="action-btn purple-theme" data-action="備品チェック＆稟議">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                    </div>
+                                    <span class="btn-title">備品チェック＆稟議</span>
+                                </button>
+
+                                <!-- 6. AKT清掃 -->
+                                <button class="action-btn pink-theme" data-action="AKT清掃">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>
+                                    </div>
+                                    <span class="btn-title">AKT清掃</span>
+                                </button>
+
+                                <!-- 7. 子ども食堂仕分け -->
+                                <button class="action-btn orange-theme" data-action="子ども食堂仕分け">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M8.1 13.34l2.83-2.83L3 2.66c-1.17 1.17-1.17 3.07 0 4.24l5.1 5.1-2.83 2.83-1.41-1.41-1.41 1.41 4.24 4.24 1.41-1.41-1.41-1.41 2.83-2.83 5.1 5.1c1.17 1.17 3.07 1.17 4.24 0l-7.83-7.83zm12.33-9.5c-.78-.78-2.05-.78-2.83 0l-7.07 7.07 2.83 2.83 7.07-7.07c.78-.78.78-2.05 0-2.83z"/></svg>
+                                    </div>
+                                    <span class="btn-title">子ども食堂仕分け</span>
+                                </button>
+
+                                <!-- 8. その他（予備） -->
+                                <button class="action-btn grey-theme" data-action="その他（予備）">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                                    </div>
+                                    <span class="btn-title">その他（予備）</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 【タブ3：伝達履歴検索】 🆕 -->
+                    <section id="tab-history" class="tab-content">
+                        <div class="section-container">
+                            <div class="section-header">
+                                <span class="section-icon">🔍</span>
+                                <h2>伝達履歴検索</h2>
+                            </div>
+                            
+                            <!-- 日付検索フィルター (カレンダー Date Picker) -->
+                            <div class="filter-panel" style="margin-bottom: 15px;">
+                                <div class="filter-row">
+                                    <div class="filter-group">
+                                        <label for="history-start-date">開始日</label>
+                                        <input type="date" id="history-start-date" class="cyber-input-date">
+                                    </div>
+                                    <span class="filter-separator">〜</span>
+                                    <div class="filter-group">
+                                        <label for="history-end-date">終了日</label>
+                                        <input type="date" id="history-end-date" class="cyber-input-date">
+                                    </div>
+                                </div>
+                                <div class="filter-actions" style="margin-top: 10px; display: flex; gap: 8px;">
+                                    <button class="cyber-btn cyan-theme" id="btn-history-search" style="flex: 1; padding: 8px 12px; font-size: 13px;">検索</button>
+                                    <button class="cyber-btn grey-theme" id="btn-history-clear" style="padding: 8px 12px; font-size: 13px;">クリア</button>
+                                </div>
+                            </div>
+                            
+                            <!-- ロード中 -->
+                            <div class="requests-loader" id="history-list-loader" style="display: none;">
+                                <div class="spinner"></div>
+                                <span>伝達履歴を検索中...</span>
+                            </div>
+                            
+                            <!-- 結果がない時の表示 -->
+                            <div class="requests-empty" id="history-list-empty" style="display: none;">
+                                <div class="empty-icon">📂</div>
+                                <h3>該当する連絡はありません</h3>
+                                <p>指定された期間内に登録された伝達事項が見つかりません。</p>
+                            </div>
+                            
+                            <!-- 伝達履歴リストコンテナ -->
+                            <div class="history-list" id="history-list-container">
+                                <!-- JSで動的にカードを生成 -->
+                            </div>
+                        </div>
+                    </section>
+
+                </main>
+
+                <!-- ボトムナビゲーションバー -->
+                <nav class="app-navigation" id="app-nav-bar">
+                    <button class="nav-item active" id="nav-home">
+                        <div class="nav-icon">
+                            <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                        </div>
+                        <span class="nav-label">ホーム</span>
+                    </button>
+                    <button class="nav-item" id="nav-history">
+                        <div class="nav-icon">
+                            <svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                        </div>
+                        <span class="nav-label">伝達履歴</span>
+                    </button>
+                    <button class="nav-item" id="nav-links">
+                        <div class="nav-icon">
+                            <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+                        </div>
+                        <span class="nav-label">業務リンク集</span>
+                    </button>
+                </nav>
+
+                <!-- ==========================================
+                     【SPAサブビュー】お願いごと一覧画面
+                ========================================== -->
+                <div class="sub-view-fullscreen" id="view-requests">
+                    <header class="sub-view-header">
+                        <button class="btn-back" id="requests-back-btn">
+                            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                        </button>
+                        <h2>お願いごと一覧</h2>
+                        <span class="header-count" id="requests-count-badge">0件</span>
+                    </header>
+                    <div class="sub-view-body">
+                        <!-- ロード中アニメーション -->
+                        <div class="requests-loader" id="requests-list-loader">
+                            <div class="spinner"></div>
+                            <span>一覧データを読み込んでいます...</span>
+                        </div>
+                        <!-- リストがない時の表示 -->
+                        <div class="requests-empty" id="requests-list-empty" style="display:none;">
+                            <div class="empty-icon">🎉</div>
+                            <h3>未完了のお願いごとはありません</h3>
+                            <p>本日の引き継ぎや依頼はすべて完了しています！</p>
+                        </div>
+                        <!-- お願いごとカードリスト -->
+                        <div class="requests-list" id="requests-list-container">
+                            <!-- JSで動的にカードを生成 -->
+                        </div>
+                    </div>
+                    <!-- 新規追加FABボタン -->
+                    <button class="fab-btn" id="fab-add-request" title="新規お願いごとを追加">
+                        <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    </button>
+                </div>
+
+                <!-- ==========================================
+                     【SPAサブビュー】故障・トラブル一覧画面
+                ========================================== -->
+                <div class="sub-view-fullscreen" id="view-troubles">
+                    <header class="sub-view-header" style="border-bottom-color: rgba(255, 0, 85, 0.25);">
+                        <button class="btn-back red-back" id="troubles-back-btn">
+                            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                        </button>
+                        <h2>故障・トラブル一覧</h2>
+                        <span class="header-count red-badge" id="troubles-count-badge">0件</span>
+                    </header>
+                    <div class="sub-view-body">
+                        <!-- ロード中アニメーション -->
+                        <div class="requests-loader" id="troubles-list-loader">
+                            <div class="spinner" style="border-top-color: var(--theme-red);"></div>
+                            <span>トラブル情報を取得中...</span>
+                        </div>
+                        <!-- リストがない時の表示 -->
+                        <div class="requests-empty" id="troubles-list-empty" style="display:none;">
+                            <div class="empty-icon">✨</div>
+                            <h3 style="color: var(--theme-emerald)">現在、故障中の設備はありません</h3>
+                            <p>ホール内のすべての遊技台・両替機が正常稼働しています。</p>
+                        </div>
+                        <!-- トラブルカードリスト -->
+                        <div class="requests-list" id="troubles-list-container">
+                            <!-- JSで動的にカードを生成 -->
+                        </div>
+                    </div>
+                    <!-- 新規追加FABボタン -->
+                    <button class="fab-btn red-fab" id="fab-add-trouble" title="故障報告を新規登録">
+                        <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    </button>
+                </div>
+
+                <!-- ==========================================
+                     【SPAサブビュー】曜日清掃・作業一覧画面 🆕
+                ========================================== -->
+                <div class="sub-view-fullscreen" id="view-cleanings">
+                    <header class="sub-view-header" style="border-bottom-color: rgba(0, 255, 136, 0.25);">
+                        <button class="btn-back emerald-back" id="cleanings-back-btn">
+                            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                        </button>
+                        <h2>曜日清掃・作業</h2>
+                        <span class="header-count emerald-badge" id="cleanings-count-badge">済 0/0件</span>
+                    </header>
+                    
+                    <!-- 曜日切り替えタブコンテナ（月〜日） -->
+                    <div class="cleaning-tabs-container">
+                        <button class="cleaning-tab" data-day="月">月</button>
+                        <button class="cleaning-tab" data-day="火">火</button>
+                        <button class="cleaning-tab" data-day="水">水</button>
+                        <button class="cleaning-tab" data-day="木">木</button>
+                        <button class="cleaning-tab" data-day="金">金</button>
+                        <button class="cleaning-tab" data-day="土">土</button>
+                        <button class="cleaning-tab" data-day="日">日</button>
+                    </div>
+
+                    <div class="sub-view-body" style="padding-top: 10px;">
+                        <!-- ロード中アニメーション -->
+                        <div class="requests-loader" id="cleanings-list-loader">
+                            <div class="spinner" style="border-top-color: var(--theme-emerald);"></div>
+                            <span>作業予定を取得中...</span>
+                        </div>
+                        <!-- リストがない時の表示 -->
+                        <div class="requests-empty" id="cleanings-list-empty" style="display:none;">
+                            <div class="empty-icon">🧹</div>
+                            <h3 style="color: var(--theme-emerald)">この曜日の特別作業はありません</h3>
+                            <p>ルーティンの日常清掃のみ行ってください。</p>
+                        </div>
+                        <!-- 曜日作業リスト -->
+                        <div class="cleaning-list" id="cleanings-list-container">
+                            <!-- JSで動的にリスト項目を生成 -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- --------------------------------------------------
+                 1. 伝達事項 編集用モーダル
+            -------------------------------------------------- -->
+            <div class="cyber-modal-overlay" id="memo-edit-overlay">
+                <div class="cyber-modal">
+                    <div class="modal-glow"></div>
+                    <div class="modal-header">
+                        <span class="modal-icon">📝</span>
+                        <h3>伝達事項の編集</h3>
+                        <button class="modal-close" id="memo-edit-close">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="cyber-form-group">
+                            <label for="input-memo-detail">詳細内容 (伝達詳細)</label>
+                            <textarea id="input-memo-detail" class="cyber-textarea" placeholder="伝達事項の本文を入力してください..."></textarea>
+                        </div>
+                        <div class="cyber-form-group" style="margin-top: 12px;">
+                            <label class="cyber-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--text-primary);">
+                                <input type="checkbox" id="input-memo-pinned" style="width: 16px; height: 16px; accent-color: var(--theme-red);">
+                                📌 重要な連絡としてピン留めする
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cyber-btn grey-theme" id="memo-edit-cancel">キャンセル</button>
+                        <button class="cyber-btn cyan-theme" id="memo-edit-save">保存する</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- --------------------------------------------------
+                 1.5 獲得会員数 編集用モーダル
+            -------------------------------------------------- -->
+            <div class="cyber-modal-overlay" id="member-edit-overlay">
+                <div class="cyber-modal" style="max-width: 320px;">
+                    <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-emerald), transparent)"></div>
+                    <div class="modal-header" style="border-bottom-color: rgba(0, 255, 136, 0.15);">
+                        <span class="modal-icon">📈</span>
+                        <h3>獲得会員数の更新</h3>
+                        <button class="modal-close" id="member-edit-close">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="cyber-form-group" style="margin-bottom: 15px;">
+                            <label for="input-member-current">現在の獲得数</label>
+                            <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
+                                <input type="number" id="input-member-current" class="cyber-input" style="flex: 1; text-align: center; font-size: 18px; font-family: 'Orbitron', sans-serif; font-weight: bold; color: var(--theme-emerald);" min="0">
+                                <button class="cyber-btn emerald-theme" id="btn-member-plus1" style="padding: 10px 15px; font-weight: bold; font-size: 14px; white-space: nowrap;">+1</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cyber-btn grey-theme" id="member-edit-cancel">キャンセル</button>
+                        <button class="cyber-btn emerald-theme" id="member-edit-save">保存する</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- --------------------------------------------------
+                 2. お願いごと 新規追加フォーム
+            -------------------------------------------------- -->
+            <div class="cyber-modal-overlay" id="request-add-overlay">
+                <div class="cyber-modal">
+                    <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-cyan), transparent)"></div>
+                    <div class="modal-header">
+                        <span class="modal-icon">➕</span>
+                        <h3>新規お願いごと登録</h3>
+                        <button class="modal-close" id="request-add-close">&times;</button>
+                    </div>
+                    <div class="modal-body scrollable-form">
+                        <div class="cyber-form-group">
+                            <label for="req-sender">依頼者 (誰から？)</label>
+                            <input type="text" id="req-sender" class="cyber-input" placeholder="例: 山田、Aシフト等">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label for="req-content">お願い内容</label>
+                            <textarea id="req-content" class="cyber-textarea" style="height:80px;" placeholder="依頼する具体的な内容を入力してください..."></textarea>
+                        </div>
+                        <div class="cyber-form-group">
+                            <label for="req-assignee">担当者 (誰へ？)</label>
+                            <input type="text" id="req-assignee" class="cyber-input" placeholder="例: 全員、早番、佐藤等">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label for="req-deadline">期限</label>
+                            <input type="text" id="req-deadline" class="cyber-input" placeholder="例: 本日中、18:00まで、明日午前等">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cyber-btn grey-theme" id="request-add-cancel">キャンセル</button>
+                        <button class="cyber-btn cyan-theme" id="request-add-submit">送信する</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- --------------------------------------------------
+                 3. 故障・トラブル 新規追加フォーム
+            -------------------------------------------------- -->
+            <div class="cyber-modal-overlay" id="trouble-add-overlay">
+                <div class="cyber-modal">
+                    <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-red), transparent)"></div>
+                    <div class="modal-header" style="border-bottom-color: rgba(255, 0, 85, 0.15);">
+                        <span class="modal-icon">🛠️</span>
+                        <h3>故障報告の新規登録</h3>
+                        <button class="modal-close" id="trouble-add-close">&times;</button>
+                    </div>
+                    <div class="modal-body scrollable-form">
+                        <div class="cyber-form-group">
+                            <label for="trb-location">場所（台番）</label>
+                            <input type="text" id="trb-location" class="cyber-input" placeholder="例: 502番台、スロット両替機等">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label for="trb-title">トラブル内容 (要約)</label>
+                            <input type="text" id="trb-title" class="cyber-input" placeholder="例: メダルセレクター詰まり、液晶暗転等">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label for="trb-detail">現在の状況 (詳細内容)</label>
+                            <textarea id="trb-detail" class="cyber-textarea" style="height:90px;" placeholder="詳しい症状、施した暫定処置などを入力してください..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cyber-btn grey-theme" id="trouble-add-cancel">キャンセル</button>
+                        <button class="cyber-btn red-theme" id="trouble-add-submit">送信する</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- --------------------------------------------------
+                 4. 故障・トラブル 詳細確認 ＆ 対応履歴編集モーダル 🆕
+            -------------------------------------------------- -->
+            <div class="cyber-modal-overlay" id="trouble-edit-overlay">
+                <div class="cyber-modal">
+                    <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-red), transparent)"></div>
+                    <div class="modal-header" style="border-bottom-color: rgba(255, 0, 85, 0.15);">
+                        <span class="modal-icon">🛠️</span>
+                        <h3>故障対応・状況更新</h3>
+                        <button class="modal-close" id="trouble-edit-close">&times;</button>
+                    </div>
+                    <div class="modal-body scrollable-form">
+                        <!-- 上半分：読み取り専用情報 -->
+                        <div class="trouble-info-panel">
+                            <div class="info-row">
+                                <span class="info-label">場所（台番）</span>
+                                <span class="info-val" id="view-trb-location">--</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">トラブル内容</span>
+                                <span class="info-val" id="view-trb-title">--</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">発生日時</span>
+                                <span class="info-val" id="view-trb-time">--</span>
+                            </div>
+                            <div class="info-row vertical">
+                                <span class="info-label">現在の状況</span>
+                                <div class="info-val-box" id="view-trb-detail">--</div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider-glow"></div>
+                        
+                        <!-- 下半分：編集可能フォーム -->
+                        <div class="cyber-form-group">
+                            <label for="edit-trb-status">対応ステータス</label>
+                            <select id="edit-trb-status" class="cyber-select">
+                                <option value="未対応">未対応</option>
+                                <option value="対応中">対応中</option>
+                                <option value="完了">完了</option>
+                            </select>
+                        </div>
+                        <div class="cyber-form-group">
+                            <label for="edit-trb-history">対応履歴（追記・編集）</label>
+                            <textarea id="edit-trb-history" class="cyber-textarea" style="height:70px;" placeholder="対応内容や今後の対応予定などを追記・変更してください..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cyber-btn grey-theme" id="trouble-edit-cancel">キャンセル</button>
+                        <button class="cyber-btn red-theme" id="trouble-edit-save">更新する</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- アクション起動時のサイバーダイアログ（モダールポップアップ） -->
+            <div class="cyber-modal-overlay" id="modal-overlay">
+                <div class="cyber-modal">
+                    <div class="modal-glow"></div>
+                    <div class="modal-header">
+                        <span class="modal-icon" id="modal-icon">📲</span>
+                        <h3 id="modal-title">アクション起動</h3>
+                        <button class="modal-close" id="modal-close-btn">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="system-loader">
+                            <div class="spinner"></div>
+                            <span class="loading-text">ARENA SYSTEM CONNECTING...</span>
+                        </div>
+                        <div class="modal-content-area" id="modal-text">
+                            システムをロードしています。しばらくお待ちください。
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cyber-btn" id="modal-ok-btn">了解</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
