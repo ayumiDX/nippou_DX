@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (isValidSession) {
-            lockScreen.style.display = 'none';
+            lockScreen.remove(); // DOMから完全に削除して自動補完の干渉を防ぐ
         } else {
             // セッションが無効、または期限切れの場合はクリアしてロック
             sessionStorage.removeItem('arena_is_unlocked');
@@ -150,10 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 if (lockScreen) {
                     lockScreen.classList.add('lock-screen-fadeout');
-                    // フェードアウトアニメーション（0.4s）完了後に完全に非表示化
+                    // フェードアウトアニメーション（0.4s）完了後に完全にDOMから削除（スマホのパスワード保存プロンプトを強力にトリガーさせるため）
                     setTimeout(() => {
-                        lockScreen.style.display = 'none';
-                        if (loginSuccessPopup) loginSuccessPopup.classList.remove('active'); // 次回用にリセット
+                        lockScreen.remove();
                     }, 400);
                 }
             }, 1500);
