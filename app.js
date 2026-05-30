@@ -1,58 +1,172 @@
 document.addEventListener('DOMContentLoaded', () => {
     
     // ==========================================
+    // 0. スプレッドシート連携用 GAS API 設定
+    // ==========================================
+    // ⚠️ Googleスプレッドシートの拡張機能「Apps Script」でWebアプリとしてデプロイしたURLをここに貼り付けます。
+    // 空欄の場合は、自動的でブラウザの「ローカルストレージ（localStorage）」を使用した100%完動する模擬（モック）システムとして動作します。
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyf_RhLhMv1C0M4OsZ_AatkRHlLjayJQzRtxuBtYCMEb425Yj_4N1LYFt1p1t0PtG8p/exec'; 
+
+    // ==========================================
     // 00. セキュリティロック画面 (Lock Screen) 制御 🆕
     // ==========================================
-    const SECRET_PASSCODE = '1234';
     const lockScreen = document.getElementById('lock-screen');
+    const loginIdInput = document.getElementById('login-id-input');
     const passcodeInput = document.getElementById('passcode-input');
     const btnUnlock = document.getElementById('btn-unlock');
     const lockScreenError = document.getElementById('lock-screen-error');
+    
+    // ログイン成功ポップアップ要素
+    const loginSuccessPopup = document.getElementById('login-success-popup');
+    const welcomeUserText = document.getElementById('welcome-user-text');
+
+    // ローカル個別ログイン用モックユーザーデータ（フォールバック用）
+    const LOCAL_USERS = {
+        'admin': { password: 'password123', userName: '管理者' },
+        'yamada': { password: 'arena_yamada', userName: '山田リーダー' },
+        'sato': { password: 'arena_sato', userName: '佐藤' },
+        'suzuki': { password: 'arena_suzuki', userName: '鈴木' }
+    };
 
     // 起動時のロック状態チェック（解除済みなら即座にスキップ）
     if (lockScreen) {
-        const isUnlocked = localStorage.getItem('arena_is_unlocked');
-        if (isUnlocked === 'true') {
+        const isUnlocked = sessionStorage.getItem('arena_is_unlocked');
+        const unlockedAt = localStorage.getItem('arena_unlocked_at');
+        const now = Date.now();
+        const LOCK_TIMEOUT = 12 * 60 * 60 * 1000; // 12時間（自動ロック時間）
+
+        let isValidSession = false;
+        if (isUnlocked === 'true' && unlockedAt) {
+            const timeElapsed = now - parseInt(unlockedAt, 10);
+            if (timeElapsed < LOCK_TIMEOUT) {
+                isValidSession = true;
+            }
+        }
+
+        if (isValidSession) {
             lockScreen.style.display = 'none';
         } else {
-            // 解除されていない場合は入力欄に自動フォーカス
+            // セッションが無効、または期限切れの場合はクリアしてロック
+            sessionStorage.removeItem('arena_is_unlocked');
+            localStorage.removeItem('arena_unlocked_at');
+            
+            // 解除されていない場合はログインID入力欄に自動フォーカス
             setTimeout(() => {
-                if (passcodeInput) passcodeInput.focus();
+                if (loginIdInput) loginIdInput.focus();
             }, 300);
         }
     }
 
-    // パスコード検証処理
-    function verifyPasscode() {
-        if (!passcodeInput) return;
-        const enteredVal = passcodeInput.value.trim();
-        if (enteredVal.length === 0) return; // 空の場合は何もしない
+    // 個別ログイン検証処理
+    async function handleLogin() {
+        if (!loginIdInput || !passcodeInput) return;
+        const loginId = loginIdInput.value.trim();
+        const password = passcodeInput.value.trim();
 
-        if (enteredVal === SECRET_PASSCODE) {
-            // 解除成功
-            localStorage.setItem('arena_is_unlocked', 'true');
+        if (loginId.length === 0) {
+            showLoginError('LOGIN IDを入力してください。');
+            loginIdInput.focus();
+            return;
+        }
+        if (password.length === 0) {
+            showLoginError('PASSWORDを入力してください。');
+            passcodeInput.focus();
+            return;
+        }
+
+        // ログインボタンを認証中状態に変更
+        if (btnUnlock) {
+            btnUnlock.disabled = true;
+            btnUnlock.textContent = 'AUTHENTICATING...';
+        }
+
+        let success = false;
+        let userName = '';
+        let errorMsg = 'ACCESS DENIED: INVALID ID OR PASSWORD';
+
+        if (GAS_API_URL) {
+            try {
+                // GASのdoPostに対してログイン情報をPOST送信
+                const response = await fetch(GAS_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        action: 'login',
+                        loginId: loginId,
+                        password: password
+                    })
+                });
+
+                if (response.ok) {
+                    const resData = await response.json();
+                    if (resData && resData.success) {
+                        success = true;
+                        userName = resData.userName || loginId;
+                    } else {
+                        success = false;
+                        errorMsg = resData.error || 'ACCESS DENIED: INVALID ID OR PASSWORD';
+                    }
+                } else {
+                    // APIエラー時はローカルモックにフォールバック
+                    console.warn('GASログインAPIがエラーを返しました。ローカルモックで判定します。');
+                    const localRes = verifyLocalLogin(loginId, password);
+                    success = localRes.success;
+                    userName = localRes.userName;
+                }
+            } catch (e) {
+                console.error('GASログインAPI通信失敗。ローカルモックで判定します。', e);
+                const localRes = verifyLocalLogin(loginId, password);
+                success = localRes.success;
+                userName = localRes.userName;
+            }
+        } else {
+            // GAS_API_URL が空の場合はローカルモックで判定
+            const localRes = verifyLocalLogin(loginId, password);
+            success = localRes.success;
+            userName = localRes.userName;
+        }
+
+        if (success) {
+            // ログイン成功処理（セッション管理と自動ロック用タイムスタンプの保存）
+            sessionStorage.setItem('arena_is_unlocked', 'true');
+            localStorage.setItem('arena_user_name', userName);
+            localStorage.setItem('arena_unlocked_at', Date.now().toString()); // ロック解除時刻を記録
+
+            // 成功ポップアップにユーザー名を設定し、表示
+            if (welcomeUserText) welcomeUserText.textContent = `${userName}さん、お疲れ様です`;
+            if (loginSuccessPopup) loginSuccessPopup.classList.add('active');
+
+            // ログイン成功の瞬間にスプレッドシートから最新データを再ロード 🆕
+            loadMemoData();
+
             if (lockScreenError) {
                 lockScreenError.textContent = '';
                 lockScreenError.classList.remove('show');
             }
-            if (lockScreen) {
-                lockScreen.classList.add('lock-screen-fadeout');
-                // フェードアウトアニメーション（0.4s）完了後に完全に非アクティブ化
-                setTimeout(() => {
-                    lockScreen.style.display = 'none';
-                }, 400);
-            }
+
+            // 1.5秒間ポップアップを表示した後に、ロック画面全体とポップアップを同時にフェードアウト
+            setTimeout(() => {
+                if (lockScreen) {
+                    lockScreen.classList.add('lock-screen-fadeout');
+                    // フェードアウトアニメーション（0.4s）完了後に完全に非表示化
+                    setTimeout(() => {
+                        lockScreen.style.display = 'none';
+                        if (loginSuccessPopup) loginSuccessPopup.classList.remove('active'); // 次回用にリセット
+                    }, 400);
+                }
+            }, 1500);
         } else {
-            // 解除失敗（ネオンレッドエラー ＆ 振動）
-            if (lockScreenError) {
-                lockScreenError.textContent = 'ACCESS DENIED: INVALID PASSCODE';
-                lockScreenError.classList.add('show');
-            }
+            // ログイン失敗処理（ネオンレッドエラー ＆ 振動）
+            showLoginError(errorMsg);
+            loginIdInput.classList.add('error-glow');
             passcodeInput.classList.add('error-glow');
-            
+
             // 0.55秒後に自動でクリアして再入力可能状態に戻す
             setTimeout(() => {
                 passcodeInput.value = '';
+                loginIdInput.classList.remove('error-glow');
                 passcodeInput.classList.remove('error-glow');
                 if (lockScreenError) {
                     lockScreenError.classList.remove('show');
@@ -60,40 +174,59 @@ document.addEventListener('DOMContentLoaded', () => {
                 passcodeInput.focus();
             }, 550);
         }
+
+        if (btnUnlock) {
+            btnUnlock.disabled = false;
+            btnUnlock.textContent = 'ACCESS SYSTEM';
+        }
     }
 
-    // 解除ボタンクリックイベント
-    if (btnUnlock) {
-        btnUnlock.addEventListener('click', verifyPasscode);
+    // ローカルでのログイン検証
+    function verifyLocalLogin(loginId, password) {
+        const targetId = loginId.toLowerCase();
+        const user = LOCAL_USERS[targetId];
+        if (user && user.password === password) {
+            return { success: true, userName: user.userName };
+        }
+        return { success: false };
     }
 
-    // 入力欄でのイベント制御
-    if (passcodeInput) {
-        passcodeInput.addEventListener('keydown', (e) => {
+    // ログインエラーメッセージの表示
+    function showLoginError(msg) {
+        if (lockScreenError) {
+            lockScreenError.textContent = msg;
+            lockScreenError.classList.add('show');
+        }
+    }
+
+    // ログインフォームのSubmitイベント（オートコンプリート保存およびログイン実行）
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleLogin();
+        });
+    }
+
+    // 入力欄でのEnterキーイベント制御（ID入力完了後にパスワード欄へフォーカス移動）
+    if (loginIdInput) {
+        loginIdInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                verifyPasscode();
-            }
-        });
-
-        // 4桁入力されたら自動で検証を走らせる（スマートなUX）
-        passcodeInput.addEventListener('input', () => {
-            // 数字のみを入力可能にする制御
-            passcodeInput.value = passcodeInput.value.replace(/[^0-9]/g, '');
-            
-            if (passcodeInput.value.length >= 4) {
-                // 入力された4桁目のドット表記がレンダリングされるのをわずかに待って検証
-                setTimeout(verifyPasscode, 150);
+                if (passcodeInput) passcodeInput.focus();
             }
         });
     }
 
-    // ==========================================
-    // 0. スプレッドシート連携用 GAS API 設定
-    // ==========================================
-    // ⚠️ Googleスプレッドシートの拡張機能「Apps Script」でWebアプリとしてデプロイしたURLをここに貼り付けます。
-    // 空欄の場合は、自動的でブラウザの「ローカルストレージ（localStorage）」を使用した100%完動する模擬（モック）システムとして動作します。
-    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyf_RhLhMv1C0M4OsZ_AatkRHlLjayJQzRtxuBtYCMEb425Yj_4N1LYFt1p1t0PtG8p/exec'; 
+    // 手動ロックボタンのクリックイベント（システムロック）
+    const btnLockManual = document.getElementById('btn-lock-manual');
+    if (btnLockManual) {
+        btnLockManual.addEventListener('click', () => {
+            sessionStorage.removeItem('arena_is_unlocked');
+            localStorage.removeItem('arena_unlocked_at');
+            location.reload(); // リロードしてロック画面を強制表示
+        });
+    }
 
 
     // ==========================================
@@ -211,12 +344,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const memberEditCancel = document.getElementById('member-edit-cancel');
     const memberEditSave = document.getElementById('member-edit-save');
     const inputMemberCurrent = document.getElementById('input-member-current');
-    const btnMemberPlus1 = document.getElementById('btn-member-plus1');
+    const btnMemberMinus = document.getElementById('btn-member-minus');
+    const btnMemberPlus = document.getElementById('btn-member-plus');
 
     // モック用の初期データ（LocalStorageに保存・管理）
     const defaultHome = {
         '月間会員目標数': 100,
-        '現在の会員数': 45
+        '現在の会員数': 45,
+        'lotteryCount': 0,
+        'walkInCount': 0
     };
 
     const defaultMemoList = [
@@ -320,9 +456,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (GAS_API_URL) {
             try {
+                console.log('GAS APIデータ取得開始 URL:', GAS_API_URL);
                 const response = await fetch(`${GAS_API_URL}?action=getHome`);
                 if (!response.ok) throw new Error('通信エラー');
                 const data = await response.json();
+                console.log('GAS APIデータ取得成功 レスポンス:', data);
                 
                 if (data && data.length > 0) {
                     const homeData = data[0];
@@ -339,6 +477,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     const targetVal = Number(homeData['月間会員目標数']) || Number(homeData.targetMembers) || 100;
                     const currentVal = Number(homeData['現在の会員数']) || Number(homeData.currentMembers) || 0;
                     updateProgressUI(currentVal, targetVal);
+
+                    // 🌟【抽選・飛び込み人数データの表示】
+                    // data[0].lotteryCount と data[0].walkInCount を確実に取得してパースする
+                    let lottery = 0;
+                    let walkIn = 0;
+
+                    if (homeData.lotteryCount !== undefined && homeData.lotteryCount !== null) {
+                        lottery = parseInt(homeData.lotteryCount, 10);
+                        if (isNaN(lottery)) lottery = 0;
+                    }
+                    if (homeData.walkInCount !== undefined && homeData.walkInCount !== null) {
+                        walkIn = parseInt(homeData.walkInCount, 10);
+                        if (isNaN(walkIn)) walkIn = 0;
+                    }
+                    
+                    console.log('パースされた人数 - 抽選:', lottery, '飛び込み:', walkIn);
+                    
+                    if (document.getElementById('lottery-count-display')) {
+                        document.getElementById('lottery-count-display').textContent = lottery;
+                    }
+                    if (document.getElementById('walk-in-count-display')) {
+                        document.getElementById('walk-in-count-display').textContent = walkIn;
+                    }
+
+                    // ローカルストレージにも同期保存してキャッシュを最新化
+                    saveTrafficLocal(lottery, walkIn);
 
                     // GASから動的スタッフ名リストが返ってきていればグローバルに保持
                     if (homeData.staffList && Array.isArray(homeData.staffList)) {
@@ -361,12 +525,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const homeStr = localStorage.getItem('arena_home');
             let currentVal = 45;
             let targetVal = 100;
+            let lotteryCount = 0;
+            let walkInCount = 0;
             
             // 会員獲得メーター用に新キー arena_home から値を取得、なければ旧キー arena_memo からフォールバック
             if (homeStr) {
                 const homeObj = JSON.parse(homeStr);
                 if (homeObj['現在の会員数'] !== undefined) currentVal = Number(homeObj['現在の会員数']);
                 if (homeObj['月間会員目標数'] !== undefined) targetVal = Number(homeObj['月間会員目標数']);
+                if (homeObj['lotteryCount'] !== undefined) lotteryCount = Number(homeObj['lotteryCount']);
+                if (homeObj['walkInCount'] !== undefined) walkInCount = Number(homeObj['walkInCount']);
             } else {
                 const oldMemoStr = localStorage.getItem('arena_memo');
                 if (oldMemoStr) {
@@ -419,6 +587,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // ローカル動作時、または連携失敗時は保存された値でメーターを安全に更新
             updateProgressUI(currentVal, targetVal);
+
+            // 🌟【抽選・飛び込み人数データの表示】
+            if (document.getElementById('lottery-count-display')) {
+                document.getElementById('lottery-count-display').textContent = lotteryCount;
+            }
+            if (document.getElementById('walk-in-count-display')) {
+                document.getElementById('walk-in-count-display').textContent = walkInCount;
+            }
         } catch (e) {
             console.warn('ローカルストレージの読み込みに失敗しました。', e);
             updateProgressUI(45, 100);
@@ -1763,12 +1939,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 「+1」インクリメントボタン
-    if (btnMemberPlus1) {
-        btnMemberPlus1.addEventListener('click', () => {
+    // 会員数「ー」減算ボタン
+    if (btnMemberMinus) {
+        console.log('[DEBUG] btnMemberMinus を検出。イベントを登録します。');
+        btnMemberMinus.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('[DEBUG] btnMemberMinus クリック検知');
             if (inputMemberCurrent) {
                 const currentVal = parseInt(inputMemberCurrent.value) || 0;
-                inputMemberCurrent.value = currentVal + 1;
+                const newVal = Math.max(0, currentVal - 1);
+                console.log(`[DEBUG] 会員数減少: ${currentVal} -> ${newVal}`);
+                inputMemberCurrent.value = newVal;
+            }
+        });
+    }
+
+    // 会員数「＋」加算ボタン
+    if (btnMemberPlus) {
+        console.log('[DEBUG] btnMemberPlus を検出。イベントを登録します。');
+        btnMemberPlus.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('[DEBUG] btnMemberPlus クリック検知');
+            if (inputMemberCurrent) {
+                const currentVal = parseInt(inputMemberCurrent.value) || 0;
+                const newVal = currentVal + 1;
+                console.log(`[DEBUG] 会員数増加: ${currentVal} -> ${newVal}`);
+                inputMemberCurrent.value = newVal;
             }
         });
     }
@@ -1831,6 +2027,172 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('arena_home', JSON.stringify(data));
         } catch (e) {
             console.error('ローカルストレージへの会員数保存に失敗しました。', e);
+        }
+    }
+
+    // ==========================================
+    // 7.6 抽選・飛び込み人数 直接編集ポップアップ機能 🆕
+    // ==========================================
+    const editTrafficBtn = document.getElementById('edit-traffic-btn');
+    const trafficEditOverlay = document.getElementById('traffic-edit-overlay');
+    const trafficEditClose = document.getElementById('traffic-edit-close');
+    const trafficEditCancel = document.getElementById('traffic-edit-cancel');
+    const trafficEditSave = document.getElementById('traffic-edit-save');
+    const inputLotteryCount = document.getElementById('input-lottery-count');
+    const inputWalkInCount = document.getElementById('input-walk-in-count');
+    const lotteryCountDisplay = document.getElementById('lottery-count-display');
+    const walkInCountDisplay = document.getElementById('walk-in-count-display');
+    const btnLotteryMinus = document.getElementById('btn-lottery-minus');
+    const btnLotteryPlus = document.getElementById('btn-lottery-plus');
+    const btnWalkinMinus = document.getElementById('btn-walkin-minus');
+    const btnWalkinPlus = document.getElementById('btn-walkin-plus');
+
+    if (editTrafficBtn) {
+        editTrafficBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // 現在の抽選・飛び込み人数を取得して初期値にセット
+            const currentLotteryText = lotteryCountDisplay ? lotteryCountDisplay.textContent : '0';
+            const currentWalkInText = walkInCountDisplay ? walkInCountDisplay.textContent : '0';
+            
+            const currentLotteryVal = parseInt(currentLotteryText) || 0;
+            const currentWalkInVal = parseInt(currentWalkInText) || 0;
+            
+            if (inputLotteryCount) inputLotteryCount.value = currentLotteryVal;
+            if (inputWalkInCount) inputWalkInCount.value = currentWalkInVal;
+            
+            if (trafficEditOverlay) trafficEditOverlay.classList.add('active');
+        });
+    }
+
+    function closeTrafficModal() {
+        if (trafficEditOverlay) trafficEditOverlay.classList.remove('active');
+    }
+
+    if (trafficEditClose) trafficEditClose.addEventListener('click', closeTrafficModal);
+    if (trafficEditCancel) trafficEditCancel.addEventListener('click', closeTrafficModal);
+
+    if (trafficEditOverlay) {
+        trafficEditOverlay.addEventListener('click', (e) => {
+            if (e.target === trafficEditOverlay) {
+                closeTrafficModal();
+            }
+        });
+    }
+
+    // 抽選人数「ー」減算ボタン
+    if (btnLotteryMinus) {
+        console.log('[DEBUG] btnLotteryMinus を検出。イベントを登録します。');
+        btnLotteryMinus.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('[DEBUG] btnLotteryMinus クリック検知');
+            if (inputLotteryCount) {
+                const currentVal = parseInt(inputLotteryCount.value) || 0;
+                const newVal = Math.max(0, currentVal - 1);
+                console.log(`[DEBUG] 抽選人数減少: ${currentVal} -> ${newVal}`);
+                inputLotteryCount.value = newVal;
+            }
+        });
+    }
+
+    // 抽選人数「＋」加算ボタン
+    if (btnLotteryPlus) {
+        console.log('[DEBUG] btnLotteryPlus を検出。イベントを登録します。');
+        btnLotteryPlus.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('[DEBUG] btnLotteryPlus クリック検知');
+            if (inputLotteryCount) {
+                const currentVal = parseInt(inputLotteryCount.value) || 0;
+                const newVal = currentVal + 1;
+                console.log(`[DEBUG] 抽選人数増加: ${currentVal} -> ${newVal}`);
+                inputLotteryCount.value = newVal;
+            }
+        });
+    }
+
+    // 飛び込み人数「ー」減算ボタン
+    if (btnWalkinMinus) {
+        console.log('[DEBUG] btnWalkinMinus を検出。イベントを登録します。');
+        btnWalkinMinus.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('[DEBUG] btnWalkinMinus クリック検知');
+            if (inputWalkInCount) {
+                const currentVal = parseInt(inputWalkInCount.value) || 0;
+                const newVal = Math.max(0, currentVal - 1);
+                console.log(`[DEBUG] 飛び込み人数減少: ${currentVal} -> ${newVal}`);
+                inputWalkInCount.value = newVal;
+            }
+        });
+    }
+
+    // 飛び込み人数「＋」加算ボタン
+    if (btnWalkinPlus) {
+        console.log('[DEBUG] btnWalkinPlus を検出。イベントを登録します。');
+        btnWalkinPlus.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('[DEBUG] btnWalkinPlus クリック検知');
+            if (inputWalkInCount) {
+                const currentVal = parseInt(inputWalkInCount.value) || 0;
+                const newVal = currentVal + 1;
+                console.log(`[DEBUG] 飛び込み人数増加: ${currentVal} -> ${newVal}`);
+                inputWalkInCount.value = newVal;
+            }
+        });
+    }
+
+    if (trafficEditSave) {
+        trafficEditSave.addEventListener('click', async () => {
+            const lotteryVal = parseInt(inputLotteryCount ? inputLotteryCount.value : '0') || 0;
+            const walkInVal = parseInt(inputWalkInCount ? inputWalkInCount.value : '0') || 0;
+
+            trafficEditSave.textContent = '保存中...';
+            trafficEditSave.disabled = true;
+
+            if (GAS_API_URL) {
+                try {
+                    await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({
+                            action: 'updateLotteryWalkIn',
+                            lotteryCount: lotteryVal,
+                            walkInCount: walkInVal
+                        })
+                    });
+                    saveTrafficLocal(lotteryVal, walkInVal);
+                } catch (e) {
+                    console.error('人数更新のスプレッドシート送信に失敗しました。ローカル保存します。', e);
+                    saveTrafficLocal(lotteryVal, walkInVal);
+                }
+            } else {
+                saveTrafficLocal(lotteryVal, walkInVal);
+            }
+
+            // UIを即座に更新！
+            if (lotteryCountDisplay) lotteryCountDisplay.textContent = lotteryVal;
+            if (walkInCountDisplay) walkInCountDisplay.textContent = walkInVal;
+
+            trafficEditSave.textContent = '保存する';
+            trafficEditSave.disabled = false;
+            closeTrafficModal();
+        });
+    }
+
+    function saveTrafficLocal(lottery, walkIn) {
+        try {
+            const dataStr = localStorage.getItem('arena_home');
+            let data = {};
+            if (dataStr) {
+                data = JSON.parse(dataStr);
+            }
+            data['lotteryCount'] = lottery;
+            data['walkInCount'] = walkIn;
+            localStorage.setItem('arena_home', JSON.stringify(data));
+        } catch (e) {
+            console.error('ローカルストレージへの人数保存に失敗しました。', e);
         }
     }
 
