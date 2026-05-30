@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260530_1">
+    <link rel="stylesheet" href="styles.css?v=20260530_2">
 </head>
 <body>
     <!-- PC表示時にスマホサイズで中央配置するためのフレームコンテナ -->
@@ -25,14 +25,14 @@
                         <h2 class="lock-screen-title">ARENA SECURITY</h2>
                         <p class="lock-screen-subtitle">SYSTEM ACCESS LOCKED</p>
                         
-                        <form id="login-form" class="lock-screen-form" onsubmit="return false;">
+                        <form id="login-form" class="lock-screen-form">
                             <div class="cyber-form-group-login">
                                 <label for="login-id-input">LOGIN ID</label>
-                                <input type="text" id="login-id-input" class="cyber-input-login" placeholder="IDを入力してください" autocomplete="username" required>
+                                <input type="text" id="login-id-input" name="username" class="cyber-input-login" placeholder="IDを入力してください" autocomplete="username" required>
                             </div>
                             <div class="cyber-form-group-login" style="margin-top: 10px;">
                                 <label for="passcode-input">PASSWORD</label>
-                                <input type="password" id="passcode-input" class="cyber-input-login" placeholder="パスワードを入力してください" autocomplete="current-password" required>
+                                <input type="password" id="passcode-input" name="password" class="cyber-input-login" placeholder="パスワードを入力してください" autocomplete="current-password" required>
                             </div>
                             <button type="submit" id="btn-unlock" class="cyber-btn btn-unlock" style="margin-top: 15px; width: 100%;">ACCESS SYSTEM</button>
                         </form>
@@ -730,6 +730,6 @@
         </div>
     </div>
     
-    <script src="app.js?v=20260530_1"></script>
+    <script src="app.js?v=20260530_2"></script>
 </body>
 </html>
