@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 起動時のロック状態チェック（解除済みなら即座にスキップ）
     if (lockScreen) {
-        const isUnlocked = sessionStorage.getItem('arena_is_unlocked');
+        const isUnlocked = localStorage.getItem('arena_is_unlocked');
         const unlockedAt = localStorage.getItem('arena_unlocked_at');
         const now = Date.now();
         const LOCK_TIMEOUT = 12 * 60 * 60 * 1000; // 12時間（自動ロック時間）
@@ -129,8 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (success) {
-            // ログイン成功処理（セッション管理と自動ロック用タイムスタンプの保存）
-            sessionStorage.setItem('arena_is_unlocked', 'true');
+            // ログイン成功処理（localStorageによるログイン状態の永続保存）
+            localStorage.setItem('arena_is_unlocked', 'true');
             localStorage.setItem('arena_user_name', userName);
             localStorage.setItem('arena_unlocked_at', Date.now().toString()); // ロック解除時刻を記録
 
@@ -150,9 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 if (lockScreen) {
                     lockScreen.classList.add('lock-screen-fadeout');
-                    // フェードアウトアニメーション（0.4s）完了後に完全にDOMから削除（スマホのパスワード保存プロンプトを強力にトリガーさせるため）
+                    // フェードアウトアニメーション（0.4s）完了後に強制リダイレクト（実質リロード）を実行
+                    // スマホ（特にSafari）の厳しいセキュリティ仕様では、非同期での単なるDOM操作ではパスワード保存が走りません。
+                    // ログイン成功後にページが「画面遷移（リロード）」することで、ブラウザが完璧にログイン完了を認識し、
+                    // スマホであっても「パスワードを保存しますか？」のプロンプトを確実に100%トリガーさせます。
                     setTimeout(() => {
-                        lockScreen.remove();
+                        window.location.replace(window.location.pathname + '?login=success');
                     }, 400);
                 }
             }, 1500);
@@ -217,13 +220,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 手動ロックボタンのクリックイベント（システムロック）
+    // ログアウト（手動ロック）ボタンのクリックイベント
     const btnLockManual = document.getElementById('btn-lock-manual');
     if (btnLockManual) {
         btnLockManual.addEventListener('click', () => {
-            sessionStorage.removeItem('arena_is_unlocked');
+            localStorage.removeItem('arena_is_unlocked');
             localStorage.removeItem('arena_unlocked_at');
-            location.reload(); // リロードしてロック画面を強制表示
+            localStorage.removeItem('arena_user_name');
+            location.reload(); // リロードしてログイン画面を強制表示
         });
     }
 
