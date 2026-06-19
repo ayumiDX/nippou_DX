@@ -1960,7 +1960,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
             }
 
-            openModal(actionName, content, icon, targetUrl);
+            if (targetUrl) {
+                window.open(targetUrl, '_blank');
+            }
+            openModal(actionName, content, icon, null);
         });
     });
 
@@ -1984,11 +1987,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (systemLoader) systemLoader.style.display = 'none';
             modalText.style.opacity = '1';
             modalText.style.transition = 'opacity 0.3s ease';
-            
-            // 指定URLが存在する場合は、新規タブで開く
-            if (targetUrl) {
-                window.open(targetUrl, '_blank');
-            }
         }, 600);
     }
 
