@@ -133,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('arena_is_unlocked', 'true');
             localStorage.setItem('arena_user_name', userName);
             localStorage.setItem('arena_unlocked_at', Date.now().toString()); // ロック解除時刻を記録
+            localStorage.setItem('arena_passcode', password); // パスコードを保存（認証用）
 
             // 成功ポップアップにユーザー名を設定し、表示
             if (welcomeUserText) welcomeUserText.textContent = `${userName}さん、お疲れ様です`;
@@ -228,6 +229,25 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.removeItem('arena_unlocked_at');
             localStorage.removeItem('arena_user_name');
             location.reload(); // リロードしてログイン画面を強制表示
+        });
+    }
+
+
+    // ==========================================
+    // テーマ切り替え（ライト/ダークテーマ） 🆕
+    // ==========================================
+    const btnThemeToggle = document.getElementById('btn-theme-toggle');
+    const savedTheme = localStorage.getItem('arena_theme');
+    
+    // 保存されたテーマがある場合は適用（デフォルトはダーク）
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+    }
+
+    if (btnThemeToggle) {
+        btnThemeToggle.addEventListener('click', () => {
+            const isLight = document.body.classList.toggle('light-theme');
+            localStorage.setItem('arena_theme', isLight ? 'light' : 'dark');
         });
     }
 
@@ -641,10 +661,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
-                    // mode: 'no-cors' でCORSエラーを回避し、書き込み成功時はローカルストレージと二重同期します
-                    await fetch(GAS_API_URL, {
+                    const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
@@ -652,9 +670,21 @@ document.addEventListener('DOMContentLoaded', () => {
                             action: 'updateHome',
                             detail: detail,
                             category: category,
-                            timestamp: formattedTime
+                            timestamp: formattedTime,
+                            passcode: localStorage.getItem('arena_passcode') || ''
                         })
                     });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            memoEditSave.textContent = '保存する';
+                            memoEditSave.disabled = false;
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
                     saveMemoLocalEx(detail, category, formattedTime);
                 } catch (e) {
                     console.error('スプレッドシート上書き保存に失敗しました。ローカルのみで保存します。', e);
@@ -823,18 +853,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
-                    fetch(GAS_API_URL, {
+                    const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
                         body: new URLSearchParams({
                             action: 'updateRequestStatus',
                             id: rowId,
-                            status: '済'
+                            status: '済',
+                            passcode: localStorage.getItem('arena_passcode') || ''
                         })
                     });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            card.classList.remove('fade-out-done');
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
                     updateRequestStatusLocal(rowId, '済');
                 } catch (err) {
                     console.error('スプレッドシート完了更新失敗。', err);
@@ -929,9 +969,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
-                    await fetch(GAS_API_URL, {
+                    const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
@@ -942,9 +981,21 @@ document.addEventListener('DOMContentLoaded', () => {
                             assignee: assignee || '全員',
                             deadline: deadline || 'なし',
                             timestamp: formattedTime,
-                            status: '未'
+                            status: '未',
+                            passcode: localStorage.getItem('arena_passcode') || ''
                         })
                     });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            requestAddSubmit.textContent = '送信する';
+                            requestAddSubmit.disabled = false;
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
                     addRequestLocal(sender, content, assignee, deadline, formattedTime);
                 } catch (e) {
                     console.error('スプレッドシート追加失敗。ローカル保存。', e);
@@ -1180,9 +1231,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
-                    await fetch(GAS_API_URL, {
+                    const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
@@ -1190,9 +1240,21 @@ document.addEventListener('DOMContentLoaded', () => {
                             action: 'updateTroubleStatus', // 新規APIアクション
                             id: rowId,
                             status: status,
-                            history: history
+                            history: history,
+                            passcode: localStorage.getItem('arena_passcode') || ''
                         })
                     });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            troubleEditSave.textContent = '更新する';
+                            troubleEditSave.disabled = false;
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
                     updateTroubleStatusLocal(rowId, status, history);
                 } catch (e) {
                     console.error('スプレッドシートのトラブル更新に失敗しました。ローカル保存します。', e);
@@ -1284,9 +1346,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
-                    await fetch(GAS_API_URL, {
+                    const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
@@ -1297,9 +1358,21 @@ document.addEventListener('DOMContentLoaded', () => {
                             detail: detail,
                             timestamp: formattedTime,
                             status: '未対応', 
-                            history: ''       
+                            history: '',
+                            passcode: localStorage.getItem('arena_passcode') || ''
                         })
                     });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            troubleAddSubmit.textContent = '送信する';
+                            troubleAddSubmit.disabled = false;
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
                     addTroubleLocal(location, title, detail, formattedTime);
                 } catch (e) {
                     console.error('スプレッドシート故障行挿入失敗。ローカル保存。', e);
@@ -1619,18 +1692,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
-                    await fetch(GAS_API_URL, {
+                    const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
                         body: new URLSearchParams({
                             action: 'updateCleaningStatus',
                             id: rowId,
-                            status: newStatus
+                            status: newStatus,
+                            passcode: localStorage.getItem('arena_passcode') || ''
                         })
                     });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            // スタイルを元に戻す
+                            if (checked) {
+                                itemEl.classList.remove('done');
+                                checkbox.checked = false;
+                            } else {
+                                itemEl.classList.add('done');
+                                checkbox.checked = true;
+                            }
+                            updateCleaningBadgeProgress();
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
                     updateCleaningStatusLocal(rowId, newStatus);
                 } catch (err) {
                     console.error('スプレッドシートの曜日作業更新失敗。', err);
@@ -1651,18 +1742,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
-                    await fetch(GAS_API_URL, {
+                    const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
                         body: new URLSearchParams({
                             action: 'updateCleaningExecutor',
                             id: rowId,
-                            executor: selectedVal
+                            executor: selectedVal,
+                            passcode: localStorage.getItem('arena_passcode') || ''
                         })
                     });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
                     updateCleaningExecutorLocal(rowId, selectedVal);
                 } catch (err) {
                     console.error('スプレッドシートの実施者更新失敗。', err);
@@ -1989,17 +2089,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
-                    await fetch(GAS_API_URL, {
+                    const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
                         body: new URLSearchParams({
                             action: 'updateMembers',
-                            currentMembers: newCurrentVal
+                            currentMembers: newCurrentVal,
+                            passcode: localStorage.getItem('arena_passcode') || ''
                         })
                     });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            memberEditSave.textContent = '保存する';
+                            memberEditSave.disabled = false;
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
                     saveMembersLocal(newCurrentVal, targetVal);
                 } catch (e) {
                     console.error('会員数更新のスプレッドシート送信に失敗しました。ローカル保存します。', e);
@@ -2153,18 +2264,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
-                    await fetch(GAS_API_URL, {
+                    const response = await fetch(GAS_API_URL, {
                         method: 'POST',
-                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
                         body: new URLSearchParams({
                             action: 'updateLotteryWalkIn',
                             lotteryCount: lotteryVal,
-                            walkInCount: walkInVal
+                            walkInCount: walkInVal,
+                            passcode: localStorage.getItem('arena_passcode') || ''
                         })
                     });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            trafficEditSave.textContent = '保存する';
+                            trafficEditSave.disabled = false;
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
                     saveTrafficLocal(lotteryVal, walkInVal);
                 } catch (e) {
                     console.error('人数更新のスプレッドシート送信に失敗しました。ローカル保存します。', e);
