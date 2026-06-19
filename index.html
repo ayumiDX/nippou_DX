@@ -502,6 +502,12 @@
                             <!-- JSで動的にリスト項目を生成 -->
                         </div>
                     </div>
+                    <!-- 曜日作業新規登録用フローティングボタン -->
+                    <div class="fab-container" style="bottom: 20px; right: 20px; z-index: 10;">
+                        <button class="fab-btn emerald-fab" id="fab-add-weekly-cleaning" title="曜日タスクを新規登録">
+                            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- ==========================================
@@ -750,6 +756,53 @@
                     <div class="modal-footer">
                         <button class="cyber-btn grey-theme" id="trouble-edit-cancel">キャンセル</button>
                         <button class="cyber-btn red-theme" id="trouble-edit-save">更新する</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- --------------------------------------------------
+                 5. 曜日清掃・作業 追加＆編集モーダル 🆕
+            -------------------------------------------------- -->
+            <div class="cyber-modal-overlay" id="weekly-cleaning-add-overlay">
+                <div class="cyber-modal">
+                    <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-emerald), transparent)"></div>
+                    <div class="modal-header" style="border-bottom-color: rgba(0, 255, 136, 0.15);">
+                        <span class="modal-icon">🧹</span>
+                        <h3 id="weekly-cleaning-modal-title">曜日タスクの登録</h3>
+                        <button class="modal-close" id="weekly-cleaning-add-close">&times;</button>
+                    </div>
+                    <div class="modal-body scrollable-form">
+                        <div class="cyber-form-group">
+                            <label for="cleaning-day-select">対象曜日</label>
+                            <select id="cleaning-day-select" class="cyber-select">
+                                <option value="月">月曜日</option>
+                                <option value="火">火曜日</option>
+                                <option value="水">水曜日</option>
+                                <option value="木">木曜日</option>
+                                <option value="金">金曜日</option>
+                                <option value="土">土曜日</option>
+                                <option value="日">日曜日</option>
+                            </select>
+                        </div>
+                        <div class="cyber-form-group">
+                            <label for="cleaning-shift-select">対象シフト</label>
+                            <select id="cleaning-shift-select" class="cyber-select">
+                                <option value="早番">早番</option>
+                                <option value="遅番">遅番</option>
+                            </select>
+                        </div>
+                        <div class="cyber-form-group">
+                            <label for="cleaning-category-input">カテゴリ（任意）</label>
+                            <input type="text" id="cleaning-category-input" class="cyber-input" placeholder="例: カウンター清掃、清掃、作業など">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label for="cleaning-task-input">作業・清掃内容</label>
+                            <textarea id="cleaning-task-input" class="cyber-textarea" placeholder="具体的な作業内容や清掃箇所を記入してください..." required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cyber-btn grey-theme" id="weekly-cleaning-add-cancel">キャンセル</button>
+                        <button class="cyber-btn emerald-theme" id="weekly-cleaning-add-save">保存する</button>
                     </div>
                 </div>
             </div>

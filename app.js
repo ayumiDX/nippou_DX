@@ -1665,6 +1665,150 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ==========================================
+    // 5.6 曜日清掃・作業 新規追加・編集機能 (FAB + フォームモーダル) 🆕
+    // ==========================================
+    const fabAddWeeklyCleaning = document.getElementById('fab-add-weekly-cleaning');
+    const weeklyCleaningAddOverlay = document.getElementById('weekly-cleaning-add-overlay');
+    const weeklyCleaningAddClose = document.getElementById('weekly-cleaning-add-close');
+    const weeklyCleaningAddCancel = document.getElementById('weekly-cleaning-add-cancel');
+    const weeklyCleaningAddSave = document.getElementById('weekly-cleaning-add-save');
+
+    const cleaningDaySelect = document.getElementById('cleaning-day-select');
+    const cleaningShiftSelect = document.getElementById('cleaning-shift-select');
+    const cleaningCategoryInput = document.getElementById('cleaning-category-input');
+    const cleaningTaskInput = document.getElementById('cleaning-task-input');
+
+    let currentEditingCleaningId = null;
+
+    if (fabAddWeeklyCleaning) {
+        fabAddWeeklyCleaning.addEventListener('click', () => {
+            currentEditingCleaningId = null; // 新規なのでIDをクリア
+            
+            // 現在選択されている曜日を初期値にする
+            if (cleaningDaySelect) cleaningDaySelect.value = currentSelectedDay || '月';
+            if (cleaningShiftSelect) cleaningShiftSelect.value = '早番';
+            if (cleaningCategoryInput) cleaningCategoryInput.value = '';
+            if (cleaningTaskInput) cleaningTaskInput.value = '';
+
+            const modalTitle = document.getElementById('weekly-cleaning-modal-title');
+            if (modalTitle) modalTitle.textContent = '曜日タスクの登録';
+            if (weeklyCleaningAddSave) weeklyCleaningAddSave.textContent = '保存する';
+
+            if (weeklyCleaningAddOverlay) weeklyCleaningAddOverlay.classList.add('active');
+        });
+    }
+
+    function closeWeeklyCleaningModal() {
+        if (weeklyCleaningAddOverlay) weeklyCleaningAddOverlay.classList.remove('active');
+    }
+
+    if (weeklyCleaningAddClose) weeklyCleaningAddClose.addEventListener('click', closeWeeklyCleaningModal);
+    if (weeklyCleaningAddCancel) weeklyCleaningAddCancel.addEventListener('click', closeWeeklyCleaningModal);
+
+    if (weeklyCleaningAddSave) {
+        weeklyCleaningAddSave.addEventListener('click', async () => {
+            const day = cleaningDaySelect.value;
+            const shift = cleaningShiftSelect.value;
+            const category = cleaningCategoryInput.value.trim();
+            const task = cleaningTaskInput.value.trim();
+
+            if (!task) {
+                alert('「作業・清掃内容」は必須入力項目です。');
+                return;
+            }
+
+            const isEdit = (currentEditingCleaningId !== null);
+            const actionName = isEdit ? 'editWeeklyCleaning' : 'addWeeklyCleaning';
+
+            if (GAS_API_URL) {
+                try {
+                    const postParams = {
+                        action: actionName,
+                        day: day,
+                        shift: shift,
+                        category: category,
+                        task: task,
+                        passcode: localStorage.getItem('arena_passcode') || ''
+                    };
+                    if (isEdit) {
+                        postParams.id = currentEditingCleaningId;
+                    }
+
+                    const response = await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams(postParams)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`保存エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
+
+                    // ローカルキャッシュの更新
+                    if (isEdit) {
+                        editWeeklyCleaningLocal(currentEditingCleaningId, day, shift, category, task);
+                    }
+                    
+                } catch (err) {
+                    console.error('曜日タスクの保存失敗。', err);
+                    alert('エラーが発生したため、ローカルでのみ仮更新します。');
+                    if (isEdit) {
+                        editWeeklyCleaningLocal(currentEditingCleaningId, day, shift, category, task);
+                    }
+                }
+            } else {
+                // オフラインモック時の動作
+                if (isEdit) {
+                    editWeeklyCleaningLocal(currentEditingCleaningId, day, shift, category, task);
+                } else {
+                    const mockList = loadCleaningsLocal();
+                    const newId = mockList.length > 0 ? Math.max(...mockList.map(item => item.id || 0)) + 1 : 2;
+                    mockList.push({
+                        id: newId,
+                        day: day,
+                        shift: shift,
+                        category: category,
+                        task: task,
+                        status: '未',
+                        executor: ''
+                    });
+                    localStorage.setItem('arena_cleanings', JSON.stringify(mockList));
+                }
+            }
+
+            // モーダルを閉じて、現在の選択曜日のリストを再描画
+            closeWeeklyCleaningModal();
+            loadCleaningsList(currentSelectedDay);
+        });
+    }
+
+    // ローカルストレージデータの編集更新用ヘルパー
+    function editWeeklyCleaningLocal(id, day, shift, category, task) {
+        try {
+            const dataStr = localStorage.getItem('arena_cleanings');
+            if (dataStr) {
+                const list = JSON.parse(dataStr);
+                const updatedList = list.map(item => {
+                    if (item.id === parseInt(id)) {
+                        return { ...item, day: day, shift: shift, category: category, task: task };
+                    }
+                    return item;
+                });
+                localStorage.setItem('arena_cleanings', JSON.stringify(updatedList));
+            }
+        } catch (e) {
+            console.error('ローカル曜日作業データ更新失敗。', e);
+        }
+    }
 
     // ==========================================
     // 【SPAサブビュー】故障報告・トラブル一覧 ＆ 新規登録・編集機能 🆕
@@ -2342,6 +2486,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     </select>
                 </div>
             </div>
+            <button class="btn-edit-cleaning" data-id="${rowId}" title="編集する">
+                <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
         `;
 
         // チェックボックスの状態変更イベント
@@ -2439,6 +2586,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateCleaningExecutorLocal(rowId, selectedVal);
             }
         });
+
+        // 編集ボタン変更イベント
+        const editBtn = itemEl.querySelector('.btn-edit-cleaning');
+        if (editBtn) {
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentEditingCleaningId = rowId;
+
+                if (cleaningDaySelect) cleaningDaySelect.value = item['曜日'] || item.day || item['曜'] || '月';
+                if (cleaningShiftSelect) cleaningShiftSelect.value = shift;
+                if (cleaningCategoryInput) cleaningCategoryInput.value = category;
+                if (cleaningTaskInput) cleaningTaskInput.value = task;
+
+                const modalTitle = document.getElementById('weekly-cleaning-modal-title');
+                if (modalTitle) modalTitle.textContent = '曜日タスクの編集';
+                if (weeklyCleaningAddSave) weeklyCleaningAddSave.textContent = '更新する';
+
+                if (weeklyCleaningAddOverlay) weeklyCleaningAddOverlay.classList.add('active');
+            });
+        }
 
         return itemEl;
     }

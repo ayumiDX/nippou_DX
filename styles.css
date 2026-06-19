@@ -2841,7 +2841,46 @@ input[type="number"] {
     letter-spacing: -0.03em;
 }
 
+/* 曜日清掃編集ボタン */
+.btn-edit-cleaning {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 255, 136, 0.06);
+    border: 1px solid var(--theme-emerald);
+    box-shadow: 0 0 6px rgba(0, 255, 136, 0.3), inset 0 0 4px rgba(0, 255, 136, 0.15);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all var(--transition-fast);
+}
 
+.btn-edit-cleaning svg {
+    width: 10px;
+    height: 10px;
+    fill: var(--theme-emerald);
+    transition: fill var(--transition-fast);
+}
 
+.btn-edit-cleaning:hover, .btn-edit-cleaning:active {
+    border-color: var(--theme-gold);
+    background: rgba(255, 215, 0, 0.15);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5), inset 0 0 6px rgba(255, 215, 0, 0.2);
+}
 
+.btn-edit-cleaning:hover svg, .btn-edit-cleaning:active svg {
+    fill: var(--theme-gold);
+}
 
+.emerald-fab {
+    background: linear-gradient(135deg, var(--theme-emerald) 0%, #00ffaa 100%) !important;
+    box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4), 0 0 20px rgba(0, 255, 136, 0.15) !important;
+}
+
+.emerald-fab:hover, .emerald-fab:active {
+    box-shadow: 0 6px 20px rgba(0, 255, 136, 0.6), 0 0 30px rgba(0, 255, 136, 0.3) !important;
+}
