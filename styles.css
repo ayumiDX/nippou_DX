@@ -1280,7 +1280,7 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 8px;
-    padding-right: 32px; /* 完了ボタンと被らないようにスペースを開ける */
+    padding-right: 80px; /* 完了ボタンと編集ボタンに被らないようにスペースを開ける */
 }
 
 .req-sender-badge {
@@ -1330,6 +1330,41 @@ body {
 
 .req-deadline-box strong {
     color: var(--theme-gold); /* 期限は目立つゴールド */
+}
+
+/* お願いごと編集ボタン */
+.btn-edit-request {
+    position: absolute;
+    top: 14px;
+    right: 48px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(0, 240, 255, 0.06);
+    border: 1px solid var(--neon-blue);
+    box-shadow: 0 0 6px rgba(0, 240, 255, 0.3), inset 0 0 4px rgba(0, 240, 255, 0.15);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all var(--transition-fast);
+}
+
+.btn-edit-request svg {
+    width: 12px;
+    height: 12px;
+    fill: var(--neon-blue);
+    transition: fill var(--transition-fast);
+}
+
+.btn-edit-request:hover, .btn-edit-request:active {
+    border-color: var(--theme-gold);
+    background: rgba(255, 215, 0, 0.15);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5), inset 0 0 6px rgba(255, 215, 0, 0.2);
+}
+
+.btn-edit-request:hover svg, .btn-edit-request:active svg {
+    fill: var(--theme-gold);
 }
 
 /* 完了ボタン (チェックマーク) */
@@ -2565,6 +2600,245 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
     -moz-appearance: textfield;
     appearance: none;
+}
+
+/* -------------------------------------------------------------
+   店内台番レイアウト：紫色ネオンデザイン 🆕
+------------------------------------------------------------- */
+.purple-back:hover, .purple-back:active {
+    color: var(--theme-purple) !important;
+    background: rgba(186, 85, 211, 0.08) !important;
+}
+
+.purple-badge {
+    color: var(--theme-purple) !important;
+    border-color: var(--theme-purple) !important;
+    background: rgba(186, 85, 211, 0.08) !important;
+    box-shadow: 0 0 6px rgba(186, 85, 211, 0.2) !important;
+}
+
+/* レイアウト表示用 CSS */
+.layout-scroll-container {
+    flex: 1;
+    overflow: auto;
+    padding: 10px 14px;
+    -webkit-overflow-scrolling: touch;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.layout-grid-canvas {
+    display: flex;
+    flex-direction: column;
+    width: max-content; /* 中身の幅に合わせる（横スクロール可能にするため） */
+    padding: 20px;
+    margin: 0 auto;
+}
+
+/* 台番号行 */
+.layout-row-machines {
+    display: flex;
+    gap: 24px; /* 中央の縦通路（左A側と右B側のスキマ） */
+}
+
+/* 2つの台行が背中合わせの時はぴったりくっつけ、通路との間にはマージンを空ける */
+.layout-grid-canvas > .layout-row-machines + .layout-row-machines {
+    margin-top: 2px; /* 背中合わせの台同士の極小の隙間 */
+}
+.layout-grid-canvas > .layout-row-machines + .layout-row-aisle,
+.layout-grid-canvas > .layout-row-aisle + .layout-row-machines {
+    margin-top: 12px; /* 通路と台行の間の隙間 */
+}
+
+/* 左右それぞれの列（Aブロック・Bブロック。各20台） */
+.layout-side-group {
+    display: flex;
+    gap: 4px; /* 台と台の横の隙間 */
+}
+
+/* 通路行 */
+.layout-row-aisle {
+    display: flex;
+    gap: 24px; /* 左側通路と右側通路の間の隙間 */
+}
+
+/* 通路スペース */
+.layout-aisle-space {
+    width: 796px; /* 台セルの幅に合わせる: 36px * 20 + 4px * 19 = 796px */
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 11px;
+    font-weight: bold;
+    border-radius: 4px;
+    user-select: none;
+    letter-spacing: 0.05em;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+}
+
+/* レート別の通路配色テーマ（スプレッドシートの忠実再現） */
+.layout-aisle-space.rate-slot {
+    background: rgba(255, 0, 85, 0.04);
+    border-color: rgba(255, 0, 85, 0.15);
+    color: rgba(255, 120, 160, 0.9);
+    box-shadow: inset 0 0 8px rgba(255, 0, 85, 0.05);
+}
+.layout-aisle-space.rate-p4 {
+    background: rgba(255, 204, 0, 0.04);
+    border-color: rgba(255, 204, 0, 0.15);
+    color: rgba(255, 220, 100, 0.9);
+    box-shadow: inset 0 0 8px rgba(255, 204, 0, 0.05);
+}
+.layout-aisle-space.rate-p1 {
+    background: rgba(0, 255, 136, 0.03);
+    border-color: rgba(0, 255, 136, 0.12);
+    color: rgba(100, 255, 180, 0.9);
+    box-shadow: inset 0 0 8px rgba(0, 255, 136, 0.03);
+}
+.layout-aisle-space.rate-p05 {
+    background: rgba(255, 127, 0, 0.04);
+    border-color: rgba(255, 127, 0, 0.15);
+    color: rgba(255, 170, 80, 0.9);
+    box-shadow: inset 0 0 8px rgba(255, 127, 0, 0.05);
+}
+
+/* 遊技台セル */
+.layout-machine {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+    user-select: none;
+}
+
+/* レート・種別ごとのカラーテーマ */
+/* スロット (1-160番台) ピンク */
+.rate-slot {
+    background: rgba(255, 0, 85, 0.06);
+    border-color: rgba(255, 0, 85, 0.3);
+}
+.rate-slot:hover {
+    background: rgba(255, 0, 85, 0.15);
+    border-color: var(--theme-pink);
+    box-shadow: 0 0 8px rgba(255, 0, 85, 0.4);
+}
+
+/* 4円パチンコ (161-320番台) イエロー */
+.rate-p4 {
+    background: rgba(255, 215, 0, 0.06);
+    border-color: rgba(255, 215, 0, 0.3);
+}
+.rate-p4:hover {
+    background: rgba(255, 215, 0, 0.15);
+    border-color: var(--theme-gold);
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+}
+
+/* 1円パチンコ (321-420番台) グリーン */
+.rate-p1 {
+    background: rgba(0, 255, 136, 0.06);
+    border-color: rgba(0, 255, 136, 0.3);
+}
+.rate-p1:hover {
+    background: rgba(0, 255, 136, 0.15);
+    border-color: var(--theme-emerald);
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+}
+
+/* 0.5円パチンコ (421-440番台) オレンジ */
+.rate-p05 {
+    background: rgba(255, 127, 80, 0.06);
+    border-color: rgba(255, 127, 80, 0.3);
+}
+.rate-p05:hover {
+    background: rgba(255, 127, 80, 0.15);
+    border-color: var(--theme-orange);
+    box-shadow: 0 0 8px rgba(255, 127, 80, 0.4);
+}
+
+/* 故障中（ハイライト） */
+.layout-machine.has-trouble {
+    background: rgba(255, 0, 85, 0.25) !important;
+    border-color: var(--theme-red) !important;
+    animation: machine-warning 1.5s infinite alternate;
+}
+
+@keyframes machine-warning {
+    0% { box-shadow: 0 0 4px rgba(255, 0, 85, 0.3); }
+    100% { box-shadow: 0 0 12px rgba(255, 0, 85, 0.8); }
+}
+
+/* 清掃済（ハイライト） */
+.layout-machine.cleaned {
+    background: rgba(0, 255, 136, 0.2) !important;
+    border-color: var(--theme-emerald) !important;
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+}
+
+/* 故障台からジャンプした際の強調ハイライト（恒久点灯・パープル太枠 ＆ 故障中バッジ） */
+.layout-machine.highlight-bounce {
+    border: 2px solid #ff00ff !important; /* 目立つネオンパープルの太枠 */
+    box-shadow: 0 0 15px #ff00ff, inset 0 0 8px rgba(255, 0, 255, 0.5) !important;
+    z-index: 10;
+}
+
+/* 故障中ミニバッジの重ね表示 */
+.layout-machine.highlight-bounce::after {
+    content: "故障中";
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff0055;
+    color: #fff;
+    font-size: 8px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    z-index: 12;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* 清掃日付入力欄のサイバー調デザイン */
+#cleaning-date-input {
+    transition: all var(--transition-fast);
+}
+#cleaning-date-input:focus {
+    outline: none;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 8px rgba(186, 85, 211, 0.4);
+}
+
+/* 台セル内の台番号と清掃日日付テキスト */
+.machine-num {
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text-primary);
+}
+.machine-date {
+    font-size: 7.5px;
+    font-weight: 600;
+    line-height: 1;
+    margin-top: 2px;
+    color: #00ffaa; /* 清掃済の緑背景の上で映えるネオングリーン */
+    letter-spacing: -0.03em;
 }
 
 

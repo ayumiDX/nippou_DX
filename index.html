@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260531_1">
+    <link rel="stylesheet" href="styles.css?v=20260619_5">
 </head>
 <body>
     <!-- PC表示時にスマホサイズで中央配置するためのフレームコンテナ -->
@@ -193,6 +193,15 @@
                                     </div>
                                     <span class="btn-title">曜日清掃・作業</span>
                                 </button>
+
+                                <!-- セル・カセット清掃 -->
+                                <button class="action-btn purple-theme" id="btn-trigger-cleaning-canvas" data-action="セル・カセット清掃">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                                    </div>
+                                    <span class="btn-title">セル・カセット清掃</span>
+                                </button>
                             </div>
                         </div>
 
@@ -371,6 +380,12 @@
                         </div>
                         <span class="nav-label">伝達履歴</span>
                     </button>
+                    <button class="nav-item" id="nav-cleaning-canvas">
+                        <div class="nav-icon">
+                            <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                        </div>
+                        <span class="nav-label">セルカセット掃除</span>
+                    </button>
                     <button class="nav-item" id="nav-links">
                         <div class="nav-icon">
                             <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
@@ -489,6 +504,37 @@
                     </div>
                 </div>
 
+                <!-- ==========================================
+                     【SPAサブビュー】セル・カセット清掃画面 🆕
+                ========================================== -->
+                <div class="sub-view-fullscreen" id="view-cleaning-canvas">
+                    <header class="sub-view-header" style="border-bottom-color: rgba(186, 85, 211, 0.25);">
+                        <button class="btn-back purple-back" id="cleaning-canvas-back-btn">
+                            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                        </button>
+                        <h2>セル・カセット清掃</h2>
+                        <span class="header-count purple-badge" id="cleaning-canvas-progress-badge">済 0/440台</span>
+                    </header>
+                    <div class="sub-view-body" style="padding: 10px 0; overflow: hidden; display: flex; flex-direction: column;">
+                        <!-- クイック移動 ＆ 全台リセットボタン -->
+                        <div class="layout-quick-nav" style="display: flex; gap: 8px; justify-content: center; align-items: center; padding: 0 14px 10px 14px; flex-wrap: wrap;">
+                            <button class="cyber-btn purple-theme" id="btn-cleaning-scroll-a" style="padding: 6px 12px; font-size: 11px;">A側 (1-20列)</button>
+                            <button class="cyber-btn purple-theme" id="btn-cleaning-scroll-b" style="padding: 6px 12px; font-size: 11px;">B側 (21-40列)</button>
+                            <div class="cleaning-date-container" style="display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 11px; color: var(--text-secondary);">
+                                <span>清掃日:</span>
+                                <input type="date" id="cleaning-date-input" style="padding: 4px 8px; font-size: 11px; border-radius: 4px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); color: #fff; color-scheme: dark; font-family: inherit;">
+                            </div>
+                            <button class="cyber-btn red-theme" id="btn-cleaning-reset" style="padding: 6px 12px; font-size: 11px;">全台リセット</button>
+                        </div>
+                        <!-- スクロール可能なコンテナ -->
+                        <div class="layout-scroll-container" id="cleaning-canvas-scroll-container">
+                            <div class="layout-grid-canvas" id="cleaning-canvas-grid-canvas">
+                                <!-- JSで動的に島レイアウトを描画 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             <!-- --------------------------------------------------
@@ -593,7 +639,7 @@
                     <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-cyan), transparent)"></div>
                     <div class="modal-header">
                         <span class="modal-icon">➕</span>
-                        <h3>新規お願いごと登録</h3>
+                        <h3 id="request-modal-title">新規お願いごと登録</h3>
                         <button class="modal-close" id="request-add-close">&times;</button>
                     </div>
                     <div class="modal-body scrollable-form">
@@ -735,6 +781,6 @@
         </div>
     </div>
     
-    <script src="app.js?v=20260531_1"></script>
+    <script src="app.js?v=20260619_5"></script>
 </body>
 </html>

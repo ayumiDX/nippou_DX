@@ -7,6 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 空欄の場合は、自動的でブラウザの「ローカルストレージ（localStorage）」を使用した100%完動する模擬（モック）システムとして動作します。
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyf_RhLhMv1C0M4OsZ_AatkRHlLjayJQzRtxuBtYCMEb425Yj_4N1LYFt1p1t0PtG8p/exec'; 
 
+    // 編集ステートの管理用変数 🆕
+    let currentEditingRequestId = null;
+    let currentEditingMemoId = null;
+
     // ==========================================
     // 00. セキュリティロック画面 (Lock Screen) 制御 🆕
     // ==========================================
@@ -627,8 +631,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // 伝達事項の編集モーダルの開閉
     if (editMemoBtn) {
         editMemoBtn.addEventListener('click', () => {
+            currentEditingMemoId = null; // 新規なのでIDをクリア
             if (inputMemoDetail) inputMemoDetail.value = ''; // 新規履歴追加なので空にする
             if (inputMemoPinned) inputMemoPinned.checked = false; // デフォルトは通常
+            
+            // モーダルの表示を「新規」用に更新
+            const modalTitle = memoEditOverlay ? memoEditOverlay.querySelector('.modal-header h3') : null;
+            if (modalTitle) modalTitle.textContent = '新規伝達事項の追加';
+            if (memoEditSave) memoEditSave.textContent = '保存する';
             
             if (memoEditOverlay) memoEditOverlay.classList.add('active');
         });
@@ -641,7 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (memoEditClose) memoEditClose.addEventListener('click', closeMemoModal);
     if (memoEditCancel) memoEditCancel.addEventListener('click', closeMemoModal);
 
-    // 伝達事項の保存処理
+    // 伝達事項の保存・更新処理
     if (memoEditSave) {
         memoEditSave.addEventListener('click', async () => {
             const detail = inputMemoDetail.value.trim();
@@ -653,7 +663,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            memoEditSave.textContent = '保存中...';
+            const isEdit = (currentEditingMemoId !== null);
+            memoEditSave.textContent = isEdit ? '更新中...' : '保存中...';
             memoEditSave.disabled = true;
 
             const now = new Date();
@@ -661,37 +672,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
+                    const actionName = isEdit ? 'editMemo' : 'updateHome';
+                    const postParams = {
+                        action: actionName,
+                        detail: detail,
+                        category: category,
+                        passcode: localStorage.getItem('arena_passcode') || ''
+                    };
+                    if (isEdit) {
+                        postParams.id = currentEditingMemoId;
+                    } else {
+                        postParams.timestamp = formattedTime;
+                    }
+
                     const response = await fetch(GAS_API_URL, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
-                        body: new URLSearchParams({
-                            action: 'updateHome',
-                            detail: detail,
-                            category: category,
-                            timestamp: formattedTime,
-                            passcode: localStorage.getItem('arena_passcode') || ''
-                        })
+                        body: new URLSearchParams(postParams)
                     });
                     if (response.ok) {
                         const result = await response.json();
                         if (result.status === 'error' || result.success === false) {
                             alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
-                            memoEditSave.textContent = '保存する';
+                            memoEditSave.textContent = isEdit ? '更新する' : '保存する';
                             memoEditSave.disabled = false;
                             return;
                         }
                     } else {
                         throw new Error('通信エラーが発生しました。');
                     }
-                    saveMemoLocalEx(detail, category, formattedTime);
+                    if (isEdit) {
+                        editMemoLocal(currentEditingMemoId, detail, category);
+                    } else {
+                        saveMemoLocalEx(detail, category, formattedTime);
+                    }
                 } catch (e) {
                     console.error('スプレッドシート上書き保存に失敗しました。ローカルのみで保存します。', e);
-                    saveMemoLocalEx(detail, category, formattedTime);
+                    if (isEdit) {
+                        editMemoLocal(currentEditingMemoId, detail, category);
+                    } else {
+                        saveMemoLocalEx(detail, category, formattedTime);
+                    }
                 }
             } else {
-                saveMemoLocalEx(detail, category, formattedTime);
+                if (isEdit) {
+                    editMemoLocal(currentEditingMemoId, detail, category);
+                } else {
+                    saveMemoLocalEx(detail, category, formattedTime);
+                }
             }
 
             // 保存完了後、UIを即時反映（最新データをロード）
@@ -730,7 +760,535 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function editMemoLocal(id, content, category) {
+        try {
+            const dataStr = localStorage.getItem('arena_memo_list');
+            if (dataStr) {
+                let list = JSON.parse(dataStr);
+                const idx = parseInt(id) - 2;
+                if (idx >= 0 && idx < list.length) {
+                    list[idx]['内容'] = content;
+                    list[idx]['区分'] = category;
+                    localStorage.setItem('arena_memo_list', JSON.stringify(list));
+                }
+            }
+        } catch (e) {
+            console.error('ローカルストレージの履歴更新に失敗しました。', e);
+        }
+    }
+
     loadMemoData();
+
+    // ==========================================
+    // 3.1. セル・カセット清掃画面（スライドインSPAサブビュー） 🆕
+    // ==========================================
+    const btnTriggerCleaningCanvas = document.getElementById('btn-trigger-cleaning-canvas');
+    const navCleaningCanvas = document.getElementById('nav-cleaning-canvas');
+    const viewCleaningCanvas = document.getElementById('view-cleaning-canvas');
+    const cleaningCanvasBackBtn = document.getElementById('cleaning-canvas-back-btn');
+    const btnCleaningScrollA = document.getElementById('btn-cleaning-scroll-a');
+    const btnCleaningScrollB = document.getElementById('btn-cleaning-scroll-b');
+    const btnCleaningReset = document.getElementById('btn-cleaning-reset');
+    const cleaningCanvasScrollContainer = document.getElementById('cleaning-canvas-scroll-container');
+
+    const layoutData = [
+        // 1行目: 1A(1〜20) / 1B(21〜40) の上列台
+        { type: 'machines', aRange: [1, 20], bRange: [21, 40], aDir: 'normal', bDir: 'normal' },
+        // 2行目: 通路 (1A 46スロ / 1B 46スロ)
+        { type: 'aisle', aText: '1A (46スロ)', bText: '1B (46スロ)', aRate: 'rate-slot', bRate: 'rate-slot' },
+        // 3行目: 1A(80〜61) / 1B(60〜41) の下列台
+        { type: 'machines', aRange: [61, 80], bRange: [41, 60], aDir: 'reverse', bDir: 'reverse' },
+        // 4行目: 2A(81〜100) / 2B(101〜120) の下列台
+        { type: 'machines', aRange: [81, 100], bRange: [101, 120], aDir: 'normal', bDir: 'normal' },
+        // 5行目: 通路 (2A 46スロ / 2B 180スロ)
+        { type: 'aisle', aText: '2A (46スロ)', bText: '2B (180スロ)', aRate: 'rate-slot', bRate: 'rate-slot' },
+        // 6行目: 2A(160〜141) / 2B(140〜121) の上列台
+        { type: 'machines', aRange: [141, 160], bRange: [121, 140], aDir: 'reverse', bDir: 'reverse' },
+        // 7行目: 3A(161〜180) / 3B(181〜200) の上列台
+        { type: 'machines', aRange: [161, 180], bRange: [181, 200], aDir: 'normal', bDir: 'normal' },
+        // 8行目: 通路 (3A 4円 / 3B 4円)
+        { type: 'aisle', aText: '3A (4円)', bText: '3B (4円)', aRate: 'rate-p4', bRate: 'rate-p4' },
+        // 9行目: 3A(240〜221) / 3B(220〜201) の下列台
+        { type: 'machines', aRange: [221, 240], bRange: [201, 220], aDir: 'reverse', bDir: 'reverse' },
+        // 10行目: 4A(241〜260) / 4B(261〜280) の下列台
+        { type: 'machines', aRange: [241, 260], bRange: [261, 280], aDir: 'normal', bDir: 'normal' },
+        // 11行目: 通路 (4A 4円 / 4B 4円)
+        { type: 'aisle', aText: '4A (4円)', bText: '4B (4円)', aRate: 'rate-p4', bRate: 'rate-p4' },
+        // 12行目: 4A(320〜301) / 4B(300〜281) の上列台
+        { type: 'machines', aRange: [301, 320], bRange: [281, 300], aDir: 'reverse', bDir: 'reverse' },
+        // 13行目: 5A(321〜340) / 5B(341〜360) の上列台
+        { type: 'machines', aRange: [321, 340], bRange: [341, 360], aDir: 'normal', bDir: 'normal' },
+        // 14行目: 通路 (5A 1円 / 5B 4円)
+        { type: 'aisle', aText: '5A (1円)', bText: '5B (4円)', aRate: 'rate-p1', bRate: 'rate-p4' },
+        // 15行目: 5A(400〜381) / 5B(380〜361) の下列台
+        { type: 'machines', aRange: [381, 400], bRange: [361, 380], aDir: 'reverse', bDir: 'reverse' },
+        // 16行目: 6A(401〜420) / 6B(421〜440) の上列台
+        { type: 'machines', aRange: [401, 420], bRange: [421, 440], aDir: 'normal', bDir: 'normal' },
+        // 17行目: 通路 (6A 1円 / 6B 0.5円)
+        { type: 'aisle', aText: '6A (1円)', bText: '6B (0.5円)', aRate: 'rate-p1', bRate: 'rate-p05' }
+    ];
+
+    let globalCassetteCleanings = [];
+    let currentHighlightedMachineId = null; // 現在ジャンプハイライト中の台番号
+
+    function loadCassetteCleaningsLocal() {
+        try {
+            const dataStr = localStorage.getItem('arena_cassette_cleanings');
+            if (dataStr) {
+                globalCassetteCleanings = JSON.parse(dataStr);
+                return;
+            }
+        } catch (e) {
+            console.warn('ローカル清掃キャッシュ読み込み失敗:', e);
+        }
+        // キャッシュがない場合は初期化（全440台未清掃）
+        globalCassetteCleanings = [];
+        for (let i = 1; i <= 440; i++) {
+            globalCassetteCleanings.push({
+                machineId: i,
+                status: '未',
+                executor: '',
+                timestamp: ''
+            });
+        }
+    }
+
+    async function fetchCassetteCleanings() {
+        loadCassetteCleaningsLocal();
+        // まずキャッシュで描画
+        renderStoreLayout();
+        updateCleaningProgressUI();
+
+        if (GAS_API_URL) {
+            try {
+                const response = await fetch(`${GAS_API_URL}?action=getCassetteCleanings`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        globalCassetteCleanings = data;
+                        localStorage.setItem('arena_cassette_cleanings', JSON.stringify(data));
+                        renderStoreLayout();
+                        updateCleaningProgressUI();
+                    }
+                }
+            } catch (e) {
+                console.error('GASから清掃データ取得失敗。キャッシュを使用します。', e);
+            }
+        }
+    }
+
+    function openCleaningCanvasView() {
+        // アクティブなナビゲーションのクラス付け替え
+        if (navHome) navHome.classList.remove('active');
+        if (navHistory) navHistory.classList.remove('active');
+        if (navLinks) navLinks.classList.remove('active');
+        if (navCleaningCanvas) navCleaningCanvas.classList.add('active');
+
+        if (viewCleaningCanvas) {
+            viewCleaningCanvas.classList.add('active');
+            if (appNavBar) appNavBar.style.display = 'none';
+        }
+
+        // 日付入力欄に本日の日付を初期値として設定（空の場合のみ）
+        const dateInput = document.getElementById('cleaning-date-input');
+        if (dateInput && !dateInput.value) {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+
+        fetchCassetteCleanings();
+    }
+
+    function closeCleaningCanvasView() {
+        if (viewCleaningCanvas) {
+            viewCleaningCanvas.classList.remove('active');
+            if (appNavBar) appNavBar.style.display = 'flex';
+        }
+        if (navCleaningCanvas) navCleaningCanvas.classList.remove('active');
+        if (navHome) navHome.classList.add('active');
+
+        // ハイライト状態をクリア
+        currentHighlightedMachineId = null;
+
+        // ハイライトを消去する
+        document.querySelectorAll('.layout-machine.highlight-bounce').forEach(c => {
+            c.classList.remove('highlight-bounce');
+        });
+    }
+
+    if (btnTriggerCleaningCanvas) {
+        btnTriggerCleaningCanvas.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openCleaningCanvasView();
+        });
+    }
+
+    if (navCleaningCanvas) {
+        navCleaningCanvas.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openCleaningCanvasView();
+        });
+    }
+
+    if (cleaningCanvasBackBtn) {
+        cleaningCanvasBackBtn.addEventListener('click', () => {
+            closeCleaningCanvasView();
+        });
+    }
+
+    if (btnCleaningScrollA && cleaningCanvasScrollContainer) {
+        btnCleaningScrollA.addEventListener('click', () => {
+            cleaningCanvasScrollContainer.scrollTo({
+                left: 0,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    if (btnCleaningScrollB && cleaningCanvasScrollContainer) {
+        btnCleaningScrollB.addEventListener('click', () => {
+            const scrollWidth = cleaningCanvasScrollContainer.scrollWidth;
+            cleaningCanvasScrollContainer.scrollTo({
+                left: scrollWidth,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    if (btnCleaningReset) {
+        btnCleaningReset.addEventListener('click', async () => {
+            const confirmed = confirm('【重要】セル・カセット清掃データをすべて「未清掃」にリセットしますか？\n（一周終了時のみ実行してください）');
+            if (!confirmed) return;
+
+            btnCleaningReset.disabled = true;
+            btnCleaningReset.textContent = 'リセット中...';
+
+            globalCassetteCleanings = globalCassetteCleanings.map(item => {
+                return { ...item, status: '未', executor: '', timestamp: '' };
+            });
+            localStorage.setItem('arena_cassette_cleanings', JSON.stringify(globalCassetteCleanings));
+            renderStoreLayout();
+            updateCleaningProgressUI();
+
+            if (GAS_API_URL) {
+                try {
+                    const response = await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({
+                            action: 'resetCassetteCleanings',
+                            passcode: localStorage.getItem('arena_passcode') || ''
+                        })
+                    });
+
+                    if (response.ok) {
+                        const resData = await response.json();
+                        if (resData.status === 'error' || resData.success === false) {
+                            alert(`エラー: ${resData.message || 'サーバー側でのリセットに失敗しました。'}`);
+                        } else {
+                            alert('全台の清掃データをリセットしました。');
+                        }
+                    } else {
+                        throw new Error('通信エラー');
+                    }
+                } catch (e) {
+                    console.error('GASリセット失敗。', e);
+                    alert('通信エラーのため、サーバーのリセットに失敗しました。ローカルキャッシュはリセットされました。');
+                }
+            } else {
+                alert('ローカルの清掃データをリセットしました。');
+            }
+
+            btnCleaningReset.disabled = false;
+            btnCleaningReset.textContent = '全台リセット';
+        });
+    }
+
+    function getRateClass(num) {
+        if (num >= 1 && num <= 160) return 'rate-slot';
+        if ((num >= 161 && num <= 320) || (num >= 341 && num <= 380)) return 'rate-p4'; // 5Bは4円パチンコ
+        if ((num >= 321 && num <= 340) || (num >= 381 && num <= 420)) return 'rate-p1'; // 5A, 6Aは1円パチンコ
+        if (num >= 421 && num <= 440) return 'rate-p05';
+        return '';
+    }
+
+    function renderStoreLayout() {
+        const canvas = document.getElementById('cleaning-canvas-grid-canvas');
+        if (!canvas) return;
+        canvas.innerHTML = '';
+
+        layoutData.forEach(row => {
+            if (row.type === 'machines') {
+                const islandRow = document.createElement('div');
+                islandRow.className = 'layout-row-machines';
+
+                let aMachines = [];
+                for (let i = row.aRange[0]; i <= row.aRange[1]; i++) {
+                    aMachines.push(i);
+                }
+                if (row.aDir === 'reverse') {
+                    aMachines.reverse();
+                }
+
+                let bMachines = [];
+                for (let i = row.bRange[0]; i <= row.bRange[1]; i++) {
+                    bMachines.push(i);
+                }
+                if (row.bDir === 'reverse') {
+                    bMachines.reverse();
+                }
+
+                const aGroup = document.createElement('div');
+                aGroup.className = 'layout-side-group';
+                aMachines.forEach(num => {
+                    aGroup.appendChild(createMachineCell(num));
+                });
+                islandRow.appendChild(aGroup);
+
+                const bGroup = document.createElement('div');
+                bGroup.className = 'layout-side-group';
+                bMachines.forEach(num => {
+                    bGroup.appendChild(createMachineCell(num));
+                });
+                islandRow.appendChild(bGroup);
+
+                canvas.appendChild(islandRow);
+            } else if (row.type === 'aisle') {
+                const aisleRow = document.createElement('div');
+                aisleRow.className = 'layout-row-aisle';
+
+                const aAisle = document.createElement('div');
+                aAisle.className = `layout-aisle-space ${row.aRate}`;
+                aAisle.textContent = row.aText;
+
+                const bAisle = document.createElement('div');
+                bAisle.className = `layout-aisle-space ${row.bRate}`;
+                bAisle.textContent = row.bText;
+
+                aisleRow.appendChild(aAisle);
+                aisleRow.appendChild(bAisle);
+
+                canvas.appendChild(aisleRow);
+            }
+        });
+
+        updateLayoutTroubles();
+    }
+
+    function createMachineCell(num) {
+        const cell = document.createElement('div');
+        cell.className = `layout-machine ${getRateClass(num)}`;
+        cell.id = `layout-mach-${num}`;
+        cell.setAttribute('data-machine-id', num);
+
+        // メモリ上のデータから「済」であればクラスを適用
+        const cleanInfo = globalCassetteCleanings.find(item => item.machineId === num);
+        let dateLabel = '';
+        if (cleanInfo && cleanInfo.status === '済') {
+            cell.classList.add('cleaned');
+            cell.setAttribute('title', `清掃済: ${cleanInfo.executor || 'スタッフ'} (${cleanInfo.timestamp || ''})`);
+
+            // タイムスタンプから月/日を抽出する (例: "2026/06/19 12:30" -> "6/19")
+            if (cleanInfo.timestamp) {
+                const parts = cleanInfo.timestamp.split(' ')[0].split('/');
+                if (parts.length === 3) {
+                    dateLabel = `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+                }
+            }
+        }
+
+        if (dateLabel) {
+            cell.innerHTML = `<span class="machine-num">${num}</span><span class="machine-date">${dateLabel}</span>`;
+        } else {
+            cell.innerHTML = `<span class="machine-num">${num}</span>`;
+        }
+
+        // 現在ハイライト対象の台であればクラスを適用
+        if (currentHighlightedMachineId === num) {
+            cell.classList.add('highlight-bounce');
+        }
+
+        cell.addEventListener('click', () => {
+            handleMachineClick(num);
+        });
+
+        return cell;
+    }
+
+    async function handleMachineClick(num) {
+        // ハイライト状態をクリア
+        currentHighlightedMachineId = null;
+        document.querySelectorAll('.layout-machine.highlight-bounce').forEach(c => {
+            c.classList.remove('highlight-bounce');
+        });
+
+        const cell = document.getElementById(`layout-mach-${num}`);
+        if (!cell) return;
+
+        const isCleaned = cell.classList.contains('cleaned');
+        const newStatus = isCleaned ? '未' : '済';
+        
+        const executor = localStorage.getItem('arena_user_name') || 'スタッフ';
+        const now = new Date();
+
+        // 選択された日付を読み込み、現在時刻と結合する
+        const dateInput = document.getElementById('cleaning-date-input');
+        let dateStr = '';
+        if (dateInput && dateInput.value) {
+            // YYYY-MM-DD -> YYYY/MM/DD
+            dateStr = dateInput.value.replace(/-/g, '/');
+        } else {
+            dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+        }
+        const timestamp = `${dateStr} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+        // 1. ローカルを即時反映
+        globalCassetteCleanings = globalCassetteCleanings.map(item => {
+            if (item.machineId === num) {
+                return { ...item, status: newStatus, executor: executor, timestamp: timestamp };
+            }
+            return item;
+        });
+        localStorage.setItem('arena_cassette_cleanings', JSON.stringify(globalCassetteCleanings));
+        
+        if (newStatus === '済') {
+            cell.classList.add('cleaned');
+            cell.setAttribute('title', `清掃済: ${executor} (${timestamp})`);
+
+            // タイムスタンプから月/日を抽出して表示
+            const parts = timestamp.split(' ')[0].split('/');
+            const dateLabel = parts.length === 3 ? `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}` : '';
+            cell.innerHTML = `<span class="machine-num">${num}</span><span class="machine-date">${dateLabel}</span>`;
+        } else {
+            cell.classList.remove('cleaned');
+            cell.removeAttribute('title');
+            
+            // 未清掃に戻した時は日付を消去し、台番号のみに戻す
+            cell.innerHTML = `<span class="machine-num">${num}</span>`;
+        }
+        updateCleaningProgressUI();
+
+        // 2. GASへ非同期でPOST
+        if (GAS_API_URL) {
+            try {
+                const response = await fetch(GAS_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        action: 'updateCassetteCleaning',
+                        machineId: num,
+                        status: newStatus,
+                        executor: executor,
+                        timestamp: timestamp,
+                        passcode: localStorage.getItem('arena_passcode') || ''
+                    })
+                });
+                
+                if (response.ok) {
+                    const resData = await response.json();
+                    if (resData.status === 'error' || resData.success === false) {
+                        alert(`エラー: ${resData.message || 'サーバー同期失敗。元の状態に戻します。'}`);
+                        rollbackStatus(num, isCleaned ? '済' : '未');
+                    }
+                } else {
+                    throw new Error('通信エラー');
+                }
+            } catch (err) {
+                console.error('GAS清掃更新失敗:', err);
+            }
+        }
+    }
+
+    function rollbackStatus(num, oldStatus) {
+        globalCassetteCleanings = globalCassetteCleanings.map(item => {
+            if (item.machineId === num) {
+                return { ...item, status: oldStatus };
+            }
+            return item;
+        });
+        localStorage.setItem('arena_cassette_cleanings', JSON.stringify(globalCassetteCleanings));
+        const cell = document.getElementById(`layout-mach-${num}`);
+        if (cell) {
+            if (oldStatus === '済') {
+                cell.classList.add('cleaned');
+            } else {
+                cell.classList.remove('cleaned');
+            }
+        }
+        updateCleaningProgressUI();
+    }
+
+    function updateCleaningProgressUI() {
+        const badge = document.getElementById('cleaning-canvas-progress-badge');
+        if (!badge) return;
+        
+        const total = 440;
+        const cleanedCount = globalCassetteCleanings.filter(item => item.status === '済').length;
+        badge.textContent = `済 ${cleanedCount}/${total}台`;
+    }
+
+    function updateLayoutTroubles() {
+        try {
+            const dataStr = localStorage.getItem('arena_troubles');
+            if (!dataStr) return;
+            const troubles = JSON.parse(dataStr);
+            
+            const machines = document.querySelectorAll('.layout-machine');
+            machines.forEach(m => m.classList.remove('has-trouble'));
+            
+            troubles.forEach(trb => {
+                if (trb.status === '未対応' || !trb.status) {
+                    const location = trb.location || '';
+                    const match = location.match(/\d+/);
+                    if (match) {
+                        const machineId = parseInt(match[0], 10);
+                        const cell = document.getElementById(`layout-mach-${machineId}`);
+                        if (cell) {
+                            cell.classList.add('has-trouble');
+                            const currentTitle = cell.getAttribute('title') || '';
+                            cell.setAttribute('title', (currentTitle ? currentTitle + ' | ' : '') + `故障中: ${trb.title}`);
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('故障台レイアウト連動エラー:', e);
+        }
+    }
+
+    function scrollToMachine(num) {
+        // ハイライト対象の台番号を状態として記憶
+        currentHighlightedMachineId = num;
+
+        // 他にハイライトされている台があればクリア
+        document.querySelectorAll('.layout-machine.highlight-bounce').forEach(c => {
+            c.classList.remove('highlight-bounce');
+        });
+
+        const cell = document.getElementById(`layout-mach-${num}`);
+        const container = document.getElementById('cleaning-canvas-scroll-container');
+        if (!cell || !container) return;
+
+        // 横スクロール位置の調整（セルの位置が中央に来るようにする）
+        const containerRect = container.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const scrollLeft = container.scrollLeft + (cellRect.left - containerRect.left) - (containerRect.width / 2) + (cellRect.width / 2);
+        
+        container.scrollTo({
+            left: Math.max(0, scrollLeft),
+            behavior: 'smooth'
+        });
+
+        // 視覚的ハイライト表示（ずっと光らせるため setTimeout は削除）
+        cell.classList.add('highlight-bounce');
+    }
 
 
     // ==========================================
@@ -841,10 +1399,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     <strong>${escapeHtml(req.deadline || 'なし')}</strong>
                 </div>
             </div>
+            <button class="btn-edit-request" data-id="${rowId}" title="編集する">
+                <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
             <button class="btn-complete-check" data-id="${rowId}" title="完了にする">
                 <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
             </button>
         `;
+
+        const editBtn = card.querySelector('.btn-edit-request');
+        if (editBtn) {
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentEditingRequestId = req.id;
+
+                if (reqSender) reqSender.value = req.sender || '';
+                if (reqContent) reqContent.value = req.content || '';
+                if (reqAssignee) reqAssignee.value = req.assignee || '全員';
+                if (reqDeadline) reqDeadline.value = req.deadline || '';
+
+                const modalTitle = document.getElementById('request-modal-title');
+                if (modalTitle) modalTitle.textContent = 'お願いごとの編集';
+                if (requestAddSubmit) requestAddSubmit.textContent = '更新する';
+
+                if (requestAddOverlay) requestAddOverlay.classList.add('active');
+            });
+        }
 
         const completeBtn = card.querySelector('.btn-complete-check');
         completeBtn.addEventListener('click', async (e) => {
@@ -934,10 +1514,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (fabAddRequest) {
         fabAddRequest.addEventListener('click', () => {
+            currentEditingRequestId = null; // 新規なのでIDをクリア
             if (reqSender) reqSender.value = '';
             if (reqContent) reqContent.value = '';
-            if (reqAssignee) reqAssignee.value = '';
+            if (reqAssignee) reqAssignee.value = '全員';
             if (reqDeadline) reqDeadline.value = '';
+            
+            const modalTitle = document.getElementById('request-modal-title');
+            if (modalTitle) modalTitle.textContent = '新規お願いごと登録';
+            if (requestAddSubmit) requestAddSubmit.textContent = '送信する';
+
             if (requestAddOverlay) requestAddOverlay.classList.add('active');
         });
     }
@@ -961,7 +1547,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            requestAddSubmit.textContent = '送信中...';
+            const isEdit = (currentEditingRequestId !== null);
+            requestAddSubmit.textContent = isEdit ? '更新中...' : '送信中...';
             requestAddSubmit.disabled = true;
 
             const now = new Date();
@@ -969,40 +1556,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (GAS_API_URL) {
                 try {
+                    const actionName = isEdit ? 'editRequest' : 'addRequest';
+                    const postParams = {
+                        action: actionName,
+                        sender: sender,
+                        content: content,
+                        assignee: assignee || '全員',
+                        deadline: deadline || 'なし',
+                        passcode: localStorage.getItem('arena_passcode') || ''
+                    };
+                    if (isEdit) {
+                        postParams.id = currentEditingRequestId;
+                    } else {
+                        postParams.timestamp = formattedTime;
+                        postParams.status = '未';
+                    }
+
                     const response = await fetch(GAS_API_URL, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
-                        body: new URLSearchParams({
-                            action: 'addRequest',
-                            sender: sender,
-                            content: content,
-                            assignee: assignee || '全員',
-                            deadline: deadline || 'なし',
-                            timestamp: formattedTime,
-                            status: '未',
-                            passcode: localStorage.getItem('arena_passcode') || ''
-                        })
+                        body: new URLSearchParams(postParams)
                     });
                     if (response.ok) {
                         const result = await response.json();
                         if (result.status === 'error' || result.success === false) {
                             alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
-                            requestAddSubmit.textContent = '送信する';
+                            requestAddSubmit.textContent = isEdit ? '更新する' : '送信する';
                             requestAddSubmit.disabled = false;
                             return;
                         }
                     } else {
                         throw new Error('通信エラーが発生しました。');
                     }
-                    addRequestLocal(sender, content, assignee, deadline, formattedTime);
+                    if (isEdit) {
+                        editRequestLocal(currentEditingRequestId, sender, content, assignee, deadline);
+                    } else {
+                        addRequestLocal(sender, content, assignee, deadline, formattedTime);
+                    }
                 } catch (e) {
-                    console.error('スプレッドシート追加失敗。ローカル保存。', e);
-                    addRequestLocal(sender, content, assignee, deadline, formattedTime);
+                    console.error('スプレッドシートへの保存に失敗しました。ローカル保存します。', e);
+                    if (isEdit) {
+                        editRequestLocal(currentEditingRequestId, sender, content, assignee, deadline);
+                    } else {
+                        addRequestLocal(sender, content, assignee, deadline, formattedTime);
+                    }
                 }
             } else {
-                addRequestLocal(sender, content, assignee, deadline, formattedTime);
+                if (isEdit) {
+                    editRequestLocal(currentEditingRequestId, sender, content, assignee, deadline);
+                } else {
+                    addRequestLocal(sender, content, assignee, deadline, formattedTime);
+                }
             }
 
             requestAddSubmit.textContent = '送信する';
@@ -1032,6 +1638,30 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('arena_requests', JSON.stringify(list));
         } catch (e) {
             console.error('ローカルお願いごと追加失敗。', e);
+        }
+    }
+
+    function editRequestLocal(id, sender, content, assignee, deadline) {
+        try {
+            const dataStr = localStorage.getItem('arena_requests');
+            if (dataStr) {
+                let list = JSON.parse(dataStr);
+                const updatedList = list.map(item => {
+                    if (item.id === parseInt(id)) {
+                        return { 
+                            ...item, 
+                            sender: sender, 
+                            content: content, 
+                            assignee: assignee || '全員', 
+                            deadline: deadline || 'なし' 
+                        };
+                    }
+                    return item;
+                });
+                localStorage.setItem('arena_requests', JSON.stringify(updatedList));
+            }
+        } catch (e) {
+            console.error('ローカルお願いごとの更新に失敗しました。', e);
         }
     }
 
@@ -1158,9 +1788,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const badgeClass = isProgress ? 'status-progress' : 'status-pending';
         const historyText = trb.history ? escapeHtml(trb.history) : '履歴なし';
 
+        // 場所から台番号（数字）を抽出
+        const match = trb.location ? trb.location.match(/\d+/) : null;
+        const hasValidMachine = match && parseInt(match[0], 10) >= 1 && parseInt(match[0], 10) <= 440;
+        
+        // 台番号がある場合は、バッジを「リンク風スタイル（下線）」にして、マップアイコンを追加
+        const locationText = hasValidMachine 
+            ? `🗺️ ${escapeHtml(trb.location)}` 
+            : escapeHtml(trb.location);
+        const badgeStyle = hasValidMachine 
+            ? 'style="cursor: pointer; text-decoration: underline; color: var(--theme-purple); border-color: var(--theme-purple); background: rgba(186, 85, 211, 0.08);"' 
+            : '';
+
         card.innerHTML = `
             <div class="trouble-card-header">
-                <span class="trb-location-badge">${escapeHtml(trb.location)}</span>
+                <span class="trb-location-badge" ${badgeStyle}>${locationText}</span>
                 <span class="trb-time-stamp">${trb.timestamp || '----/--/-- --:--'}</span>
             </div>
             <div class="trouble-card-body">
@@ -1176,6 +1818,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+
+        // 場所バッジをタップした際の挙举（台番号ジャンプ）
+        if (hasValidMachine) {
+            const badge = card.querySelector('.trb-location-badge');
+            if (badge) {
+                badge.addEventListener('click', (e) => {
+                    e.stopPropagation(); // 親要素のカードタップ（編集モーダル）を抑止
+                    const machineId = parseInt(match[0], 10);
+                    
+                    // トラブル一覧画面を閉じる
+                    if (viewTroubles) {
+                        viewTroubles.classList.remove('active');
+                    }
+                    
+                    // 清掃画面を開く
+                    openCleaningCanvasView();
+                    
+                    // 画面遷移アニメーション完了を待ってから該当台番号にスクロール
+                    setTimeout(() => {
+                        scrollToMachine(machineId);
+                    }, 400);
+                });
+            }
+        }
 
         // 🆕 カード全体をタップすると「詳細・編集画面（モーダル）」を開く
         card.addEventListener('click', () => {
@@ -1353,6 +2019,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         },
                         body: new URLSearchParams({
                             action: 'addTrouble',
+                            reporter: localStorage.getItem('arena_user_name') || 'スタッフ',
                             location: location,
                             title: title,
                             detail: detail,
@@ -2556,12 +3223,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const badgeLabel = isImportant ? '📌 重要' : '通常';
 
         card.innerHTML = `
-            <div class="history-card-header">
+            <div class="history-card-header" style="position: relative; padding-right: 32px;">
                 <span class="history-time">${escapeHtml(regTime)}</span>
                 <span class="history-badge ${badgeClass}">${escapeHtml(badgeLabel)}</span>
+                <button class="btn-edit-memo" data-id="${item.id}" title="編集する" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--neon-blue); cursor: pointer; display: flex; align-items: center; padding: 2px;">
+                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
             </div>
             <div class="history-content">${escapeHtml(content).replace(/\n/g, '<br>')}</div>
         `;
+
+        const editBtn = card.querySelector('.btn-edit-memo');
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentEditingMemoId = item.id;
+            
+            // モーダルに現在のデータをセット
+            if (inputMemoDetail) inputMemoDetail.value = content || '';
+            if (inputMemoPinned) inputMemoPinned.checked = isImportant;
+            
+            // モーダルの表示を「編集」用に更新
+            const modalTitle = memoEditOverlay ? memoEditOverlay.querySelector('.modal-header h3') : null;
+            if (modalTitle) modalTitle.textContent = '伝達事項の編集';
+            if (memoEditSave) memoEditSave.textContent = '更新する';
+            
+            if (memoEditOverlay) memoEditOverlay.classList.add('active');
+        });
 
         return card;
     }
