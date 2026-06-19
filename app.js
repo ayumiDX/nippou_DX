@@ -1673,6 +1673,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const weeklyCleaningAddClose = document.getElementById('weekly-cleaning-add-close');
     const weeklyCleaningAddCancel = document.getElementById('weekly-cleaning-add-cancel');
     const weeklyCleaningAddSave = document.getElementById('weekly-cleaning-add-save');
+    const weeklyCleaningDeleteBtn = document.getElementById('weekly-cleaning-delete-btn');
 
     const cleaningDaySelect = document.getElementById('cleaning-day-select');
     const cleaningShiftSelect = document.getElementById('cleaning-shift-select');
@@ -1694,6 +1695,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const modalTitle = document.getElementById('weekly-cleaning-modal-title');
             if (modalTitle) modalTitle.textContent = '曜日タスクの登録';
             if (weeklyCleaningAddSave) weeklyCleaningAddSave.textContent = '保存する';
+            if (weeklyCleaningDeleteBtn) weeklyCleaningDeleteBtn.style.display = 'none';
 
             if (weeklyCleaningAddOverlay) weeklyCleaningAddOverlay.classList.add('active');
         });
@@ -1807,6 +1809,69 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) {
             console.error('ローカル曜日作業データ更新失敗。', e);
+        }
+    }
+
+    if (weeklyCleaningDeleteBtn) {
+        weeklyCleaningDeleteBtn.addEventListener('click', async () => {
+            if (!currentEditingCleaningId) return;
+            
+            if (!confirm('このタスクを削除してもよろしいですか？\n(削除すると元に戻せません)')) {
+                return;
+            }
+            
+            if (GAS_API_URL) {
+                try {
+                    const response = await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({
+                            action: 'deleteWeeklyCleaning',
+                            id: currentEditingCleaningId,
+                            passcode: localStorage.getItem('arena_passcode') || ''
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'error' || result.success === false) {
+                            alert(`削除エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                            return;
+                        }
+                    } else {
+                        throw new Error('通信エラーが発生しました。');
+                    }
+                    
+                    // ローカルキャッシュからの削除
+                    deleteWeeklyCleaningLocal(currentEditingCleaningId);
+                    
+                } catch (err) {
+                    console.error('曜日タスクの削除失敗。', err);
+                    alert('エラーが発生したため、ローカルでのみ仮削除します。');
+                    deleteWeeklyCleaningLocal(currentEditingCleaningId);
+                }
+            } else {
+                deleteWeeklyCleaningLocal(currentEditingCleaningId);
+            }
+            
+            closeWeeklyCleaningModal();
+            loadCleaningsList(currentSelectedDay);
+        });
+    }
+
+    // ローカルストレージデータの削除用ヘルパー
+    function deleteWeeklyCleaningLocal(id) {
+        try {
+            const dataStr = localStorage.getItem('arena_cleanings');
+            if (dataStr) {
+                const list = JSON.parse(dataStr);
+                const updatedList = list.filter(item => item.id !== parseInt(id));
+                localStorage.setItem('arena_cleanings', JSON.stringify(updatedList));
+            }
+        } catch (e) {
+            console.error('ローカル曜日作業データ削除失敗。', e);
         }
     }
 
@@ -2602,6 +2667,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const modalTitle = document.getElementById('weekly-cleaning-modal-title');
                 if (modalTitle) modalTitle.textContent = '曜日タスクの編集';
                 if (weeklyCleaningAddSave) weeklyCleaningAddSave.textContent = '更新する';
+                if (weeklyCleaningDeleteBtn) weeklyCleaningDeleteBtn.style.display = 'inline-block';
 
                 if (weeklyCleaningAddOverlay) weeklyCleaningAddOverlay.classList.add('active');
             });
