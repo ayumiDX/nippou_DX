@@ -2287,7 +2287,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const shift = item['対象シフト'] || item.shift || '早番';
         const category = item['カテゴリ'] || item.category || '';
         const task = item['内容'] || item['作業内容'] || item.task || '';
-        const executor = item['担当者'] || item['担当'] || item.executor || item.assignee || '';
+        const executor = item['実施者'] || item['実施者名'] || item['担当者'] || item['担当'] || item.executor || item.assignee || '';
         const status = item['ステータス'] || item.status || item['状況'] || '未';
         const rowId = item.id || item['ID'] || item['id'] || item['行番号'];
         
