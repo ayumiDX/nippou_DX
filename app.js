@@ -1245,8 +1245,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             troubles.forEach(trb => {
                 if (trb.status === '未対応' || !trb.status) {
-                    const location = trb.location || '';
-                    const match = location.match(/\d+/);
+                    const locationStr = String(trb.location || '');
+                    const match = locationStr.match(/\d+/);
                     if (match) {
                         const machineId = parseInt(match[0], 10);
                         const cell = document.getElementById(`layout-mach-${machineId}`);
@@ -1998,13 +1998,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const historyText = trb.history ? escapeHtml(trb.history) : '履歴なし';
 
         // 場所から台番号（数字）を抽出
-        const match = trb.location ? trb.location.match(/\d+/) : null;
+        const locationStr = String(trb.location || '');
+        const match = locationStr.match(/\d+/);
         const hasValidMachine = match && parseInt(match[0], 10) >= 1 && parseInt(match[0], 10) <= 440;
         
         // 台番号がある場合は、バッジを「リンク風スタイル（下線）」にして、マップアイコンを追加
         const locationText = hasValidMachine 
-            ? `🗺️ ${escapeHtml(trb.location)}` 
-            : escapeHtml(trb.location);
+            ? `🗺️ ${escapeHtml(locationStr)}` 
+            : escapeHtml(locationStr);
         const badgeStyle = hasValidMachine 
             ? 'style="cursor: pointer; text-decoration: underline; color: var(--theme-purple); border-color: var(--theme-purple); background: rgba(186, 85, 211, 0.08);"' 
             : '';
