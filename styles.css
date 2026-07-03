@@ -2895,115 +2895,75 @@ input[type="number"] {
 }
 
 /* =============================================================
-   速報ティッカーバナー（ネオン電光掲示板デザイン） 🆕
+   クイックアクション用 新規追加お知らせバッジ 🆕
    ============================================================= */
-.ticker-banner-container {
-    border-radius: 8px;
-    padding: 8px 12px;
-    margin: 10px 14px 4px 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    position: relative;
-    overflow: hidden;
+.action-btn-alert {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    z-index: 5;
+    text-shadow: none;
 }
 
-/* 故障用（赤ネオンテーマ） */
-.ticker-banner-container.theme-red {
-    background: rgba(255, 0, 85, 0.06);
-    border: 1px solid var(--theme-red);
-    box-shadow: 0 0 10px rgba(255, 0, 85, 0.15), inset 0 0 5px rgba(255, 0, 85, 0.1);
-    animation: neon-blink-red 2s infinite alternate;
-}
-.ticker-banner-container.theme-red .ticker-tag {
+/* 故障報告用（赤バッジ＆点滅） */
+.action-btn.red-theme .action-btn-alert {
     background: var(--theme-red);
     color: #fff;
     box-shadow: 0 0 8px var(--theme-red-glow);
-}
-.ticker-banner-container.theme-red .ticker-text {
-    color: #ff99bb;
-    text-shadow: 0 0 4px rgba(255, 0, 85, 0.5);
+    animation: alert-blink-red 1s infinite alternate;
 }
 
-/* お願いごと用（シアンネオンテーマ） */
-.ticker-banner-container.theme-cyan {
-    background: rgba(0, 240, 255, 0.06);
-    border: 1px solid var(--theme-cyan);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.15), inset 0 0 5px rgba(0, 240, 255, 0.1);
-    animation: neon-blink-cyan 2s infinite alternate;
-}
-.ticker-banner-container.theme-cyan .ticker-tag {
+/* お願いごと用（シアンバッジ＆点滅） */
+.action-btn.cyan-theme .action-btn-alert {
     background: var(--theme-cyan);
     color: var(--text-dark);
     box-shadow: 0 0 8px var(--theme-cyan-glow);
-}
-.ticker-banner-container.theme-cyan .ticker-text {
-    color: #99f0ff;
-    text-shadow: 0 0 4px rgba(0, 240, 255, 0.5);
+    animation: alert-blink-cyan 1s infinite alternate;
 }
 
-.ticker-glow {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
-    animation: scan-light 4s linear infinite;
-    pointer-events: none;
+/* 新規追加検知時のボタン全体のネオン点滅 🆕 */
+.action-btn.cyan-theme.has-new-alert {
+    border-color: var(--theme-cyan) !important;
+    animation: button-neon-cyan 2s infinite alternate !important;
+}
+.action-btn.red-theme.has-new-alert {
+    border-color: var(--theme-red) !important;
+    animation: button-neon-red 2s infinite alternate !important;
 }
 
-.ticker-tag {
-    font-size: 9px;
-    font-weight: 900;
-    padding: 2px 6px;
-    border-radius: 4px;
-    letter-spacing: 1px;
-    flex-shrink: 0;
-}
-
-.ticker-scroll {
-    overflow: hidden;
-    white-space: nowrap;
-    width: 100%;
-}
-
-.ticker-text {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: bold;
-    animation: ticker-move 12s linear infinite;
-    padding-left: 20px;
-}
-
-@keyframes ticker-move {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-100%); }
-}
-
-@keyframes scan-light {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
-
-@keyframes neon-blink-red {
-    0%, 100% {
-        border-color: rgba(255, 0, 85, 0.4);
-        box-shadow: 0 0 8px rgba(255, 0, 85, 0.1);
+@keyframes alert-blink-red {
+    0% {
+        box-shadow: 0 0 3px rgba(255, 0, 85, 0.4);
+        opacity: 0.85;
     }
-    50% {
-        border-color: var(--theme-red);
-        box-shadow: 0 0 15px rgba(255, 0, 85, 0.35), inset 0 0 8px rgba(255, 0, 85, 0.15);
+    100% {
+        box-shadow: 0 0 10px rgba(255, 0, 85, 0.95);
+        opacity: 1;
     }
 }
 
-@keyframes neon-blink-cyan {
-    0%, 100% {
-        border-color: rgba(0, 240, 255, 0.4);
-        box-shadow: 0 0 8px rgba(0, 240, 255, 0.1);
+@keyframes alert-blink-cyan {
+    0% {
+        box-shadow: 0 0 3px rgba(0, 240, 255, 0.4);
+        opacity: 0.85;
     }
-    50% {
-        border-color: var(--theme-cyan);
-        box-shadow: 0 0 15px rgba(0, 240, 255, 0.35), inset 0 0 8px rgba(0, 240, 255, 0.15);
+    100% {
+        box-shadow: 0 0 10px rgba(0, 240, 255, 0.95);
+        opacity: 1;
     }
+}
+
+@keyframes button-neon-cyan {
+    0% { box-shadow: 0 0 5px rgba(0, 240, 255, 0.2); }
+    100% { box-shadow: 0 0 14px rgba(0, 240, 255, 0.45), inset 0 0 4px rgba(0, 240, 255, 0.2); }
+}
+@keyframes button-neon-red {
+    0% { box-shadow: 0 0 5px rgba(255, 0, 85, 0.2); }
+    100% { box-shadow: 0 0 14px rgba(255, 0, 85, 0.45), inset 0 0 4px rgba(255, 0, 85, 0.2); }
 }

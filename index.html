@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260703_2">
+    <link rel="stylesheet" href="styles.css?v=20260703_3">
 </head>
 <body>
     <!-- PC表示時にスマホサイズで中央配置するためのフレームコンテナ -->
@@ -117,15 +117,6 @@
                     
                     <!-- 【タブ1：ホーム】 -->
                     <section id="tab-home" class="tab-content active">
-                        
-                        <!-- 速報・お知らせ通知バナー（電光掲示板風ネオン点滅） 🆕 -->
-                        <div class="ticker-banner-container" id="ticker-notification-banner" style="display: none;">
-                            <div class="ticker-glow"></div>
-                            <span class="ticker-tag" id="ticker-banner-tag">ALERT</span>
-                            <div class="ticker-scroll">
-                                <span class="ticker-text" id="ticker-banner-text">--</span>
-                            </div>
-                        </div>
 
                         <!-- 1. 伝達事項テキストエリア（重要ピン留め＆通常2段組） -->
                         <div class="section-container">
@@ -175,6 +166,7 @@
                                         <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/></svg>
                                     </div>
                                     <span class="btn-title">お願いごと</span>
+                                    <span class="action-btn-alert" id="request-btn-alert" style="display: none;">--</span>
                                 </button>
                                 
                                 <!-- 故障報告（遷移用アクション） -->
@@ -184,6 +176,7 @@
                                         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                                     </div>
                                     <span class="btn-title">故障報告</span>
+                                    <span class="action-btn-alert" id="trouble-btn-alert" style="display: none;">--</span>
                                 </button>
 
                                 <!-- スケジュール（URL遷移用アクション） -->
@@ -845,6 +838,6 @@
         </div>
     </div>
     
-    <script src="app.js?v=20260703_2"></script>
+    <script src="app.js?v=20260703_3"></script>
 </body>
 </html>
