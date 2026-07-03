@@ -2778,6 +2778,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 // ==========================================
                 // 【ホームタブのアクション】
                 // ==========================================
+                case '社内消費・個人購入':
+                    icon = '🛒';
+                    targetUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdkmU1gXbFuGhH_1tfZ3Or8GoAVGaxE1LckJmkgLGS6-Nnsqw/viewform?usp=publish-editor';
+                    content = `<strong>【社内消費・個人購入入力フォーム】</strong><br><br>
+                               Googleフォーム（社内消費・個人購入入力フォーム）へ接続します。<br>
+                               現在、新規ブラウザタブで安全なロードを実行中です...<br><br>
+                               画面が切り替わらない場合は、以下のボタンを直接タップしてください。<br><br>
+                               <a href="${targetUrl}" target="_blank" class="cyber-btn" style="display:inline-block; text-decoration:none; text-align:center; width:100%; box-shadow:0 0 10px rgba(255, 110, 0, 0.3)">👉 入力フォームを開く</a>`;
+                    break;
                 case 'スケジュール':
                     icon = '📅';
                     targetUrl = 'https://docs.google.com/spreadsheets/d/103j9wUgj_eu0bMgvRFoMFw5gy4_vr4b5RHgGEUkxieA/edit?gid=633683311#gid=633683311';
