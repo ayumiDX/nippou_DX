@@ -1905,10 +1905,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const troubleEditSave = document.getElementById('trouble-edit-save');
 
     // 編集画面内表示パーツ 🆕
-    const viewTrbLocation = document.getElementById('view-trb-location');
-    const viewTrbTitle = document.getElementById('view-trb-title');
+    const editTrbLocationInput = document.getElementById('edit-trb-location');
+    const editTrbTitleInput = document.getElementById('edit-trb-title');
+    const editTrbDetailInput = document.getElementById('edit-trb-detail');
     const viewTrbTime = document.getElementById('view-trb-time');
-    const viewTrbDetail = document.getElementById('view-trb-detail');
     const editTrbStatus = document.getElementById('edit-trb-status');
     const editTrbHistory = document.getElementById('edit-trb-history');
 
@@ -2065,11 +2065,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function openTroubleEditModal(trb) {
         currentEditingTroubleId = trb.id;
 
-        // 上半分：読み取り専用情報のテキスト代入
-        if (viewTrbLocation) viewTrbLocation.textContent = trb.location;
-        if (viewTrbTitle) viewTrbTitle.textContent = trb.title;
+        // 上半分：編集可能情報のインプットに値をセット
+        if (editTrbLocationInput) editTrbLocationInput.value = trb.location || '';
+        if (editTrbTitleInput) editTrbTitleInput.value = trb.title || '';
+        if (editTrbDetailInput) editTrbDetailInput.value = trb.detail || '';
         if (viewTrbTime) viewTrbTime.textContent = trb.timestamp || '----/--/-- --:--';
-        if (viewTrbDetail) viewTrbDetail.innerHTML = escapeHtml(trb.detail || '').replace(/\n/g, '<br>');
 
         // 下半分：編集フォームへの初期値代入
         if (editTrbStatus) {
@@ -2092,13 +2092,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (troubleEditClose) troubleEditClose.addEventListener('click', closeTroubleEditModal);
     if (troubleEditCancel) troubleEditCancel.addEventListener('click', closeTroubleEditModal);
 
-    // 🆕 故障・トラブルのステータス・対応履歴の更新保存処理
+    // 🆕 故障・トラブルのステータス・対応履歴・登録内容の更新保存処理
     if (troubleEditSave) {
         troubleEditSave.addEventListener('click', async () => {
             if (!currentEditingTroubleId) return;
 
+            const location = editTrbLocationInput ? editTrbLocationInput.value.trim() : '';
+            const title = editTrbTitleInput ? editTrbTitleInput.value.trim() : '';
+            const detail = editTrbDetailInput ? editTrbDetailInput.value.trim() : '';
             const status = editTrbStatus.value;
             const history = editTrbHistory.value.trim();
+
+            if (!location || !title) {
+                alert('「場所（台番）」と「トラブル内容」は必須入力項目です。');
+                return;
+            }
 
             troubleEditSave.textContent = '更新中...';
             troubleEditSave.disabled = true;
@@ -2115,6 +2123,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: new URLSearchParams({
                             action: 'updateTroubleStatus', // 新規APIアクション
                             id: rowId,
+                            location: location,
+                            title: title,
+                            detail: detail,
                             status: status,
                             history: history,
                             passcode: localStorage.getItem('arena_passcode') || ''
@@ -2131,13 +2142,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         throw new Error('通信エラーが発生しました。');
                     }
-                    updateTroubleStatusLocal(rowId, status, history);
+                    updateTroubleStatusLocal(rowId, status, history, location, title, detail);
                 } catch (e) {
                     console.error('スプレッドシートのトラブル更新に失敗しました。ローカル保存します。', e);
-                    updateTroubleStatusLocal(rowId, status, history);
+                    updateTroubleStatusLocal(rowId, status, history, location, title, detail);
                 }
             } else {
-                updateTroubleStatusLocal(rowId, status, history);
+                updateTroubleStatusLocal(rowId, status, history, location, title, detail);
             }
 
             // モーダルを閉じ、要素を復元
@@ -2165,15 +2176,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ローカル側トラブルのステータス＆対応履歴上書き更新
-    function updateTroubleStatusLocal(id, newStatus, newHistory) {
+    // ローカル側トラブルのステータス＆対応履歴＆登録内容上書き更新
+    function updateTroubleStatusLocal(id, newStatus, newHistory, newLocation, newTitle, newDetail) {
         try {
             const dataStr = localStorage.getItem('arena_troubles');
             if (dataStr) {
                 const list = JSON.parse(dataStr);
                 const updatedList = list.map(item => {
                     if (item.id === parseInt(id)) {
-                        return { ...item, status: newStatus, history: newHistory };
+                        return { 
+                            ...item, 
+                            status: newStatus, 
+                            history: newHistory,
+                            location: newLocation !== undefined ? newLocation : item.location,
+                            title: newTitle !== undefined ? newTitle : item.title,
+                            detail: newDetail !== undefined ? newDetail : item.detail
+                        };
                     }
                     return item;
                 });

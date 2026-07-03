@@ -787,13 +787,17 @@ body {
     background-color: rgba(0, 0, 0, 0.75);
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
-    z-index: 100;
+    z-index: 1000;
     display: flex;
     justify-content: center;
     align-items: center;
     opacity: 0;
     pointer-events: none;
     transition: opacity var(--transition-normal);
+    overflow-y: auto;
+    padding: 20px 0;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
 }
 
 .cyber-modal-overlay.active {
@@ -812,6 +816,7 @@ body {
     overflow: hidden;
     transform: scale(0.9) translateY(10px);
     transition: transform var(--transition-normal);
+    margin: auto;
 }
 
 .cyber-modal-overlay.active .cyber-modal {
@@ -949,6 +954,10 @@ body {
         border-radius: 0;
         border: none;
         box-shadow: none;
+    }
+
+    .scrollable-form {
+        max-height: 200px !important;
     }
 }
 

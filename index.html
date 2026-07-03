@@ -717,23 +717,23 @@
                         <button class="modal-close" id="trouble-edit-close">&times;</button>
                     </div>
                     <div class="modal-body scrollable-form">
-                        <!-- 上半分：読み取り専用情報 -->
-                        <div class="trouble-info-panel">
-                            <div class="info-row">
-                                <span class="info-label">場所（台番）</span>
-                                <span class="info-val" id="view-trb-location">--</span>
+                        <!-- 上半分：登録情報の再編集用フォーム -->
+                        <div class="trouble-info-panel" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+                            <div class="cyber-form-group" style="margin-bottom: 0;">
+                                <label for="edit-trb-location" style="font-size: 10px;">場所（台番）</label>
+                                <input type="text" id="edit-trb-location" class="cyber-input" style="padding: 6px 10px; font-size: 11px;">
                             </div>
-                            <div class="info-row">
-                                <span class="info-label">トラブル内容</span>
-                                <span class="info-val" id="view-trb-title">--</span>
+                            <div class="cyber-form-group" style="margin-bottom: 0;">
+                                <label for="edit-trb-title" style="font-size: 10px;">トラブル内容 (要約)</label>
+                                <input type="text" id="edit-trb-title" class="cyber-input" style="padding: 6px 10px; font-size: 11px;">
                             </div>
-                            <div class="info-row">
-                                <span class="info-label">発生日時</span>
-                                <span class="info-val" id="view-trb-time">--</span>
+                            <div class="cyber-form-group" style="margin-bottom: 0;">
+                                <label for="edit-trb-detail" style="font-size: 10px;">現在の状況 (詳細内容)</label>
+                                <textarea id="edit-trb-detail" class="cyber-textarea" style="height:70px; padding: 6px 10px; font-size: 11px;"></textarea>
                             </div>
-                            <div class="info-row vertical">
-                                <span class="info-label">現在の状況</span>
-                                <div class="info-val-box" id="view-trb-detail">--</div>
+                            <div class="info-row" style="margin-bottom: 0;">
+                                <span class="info-label" style="font-size: 10px;">発生日時</span>
+                                <span class="info-val" id="view-trb-time" style="font-size: 10px;">--</span>
                             </div>
                         </div>
                         
