@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260703_1">
+    <link rel="stylesheet" href="styles.css?v=20260703_2">
 </head>
 <body>
     <!-- PC表示時にスマホサイズで中央配置するためのフレームコンテナ -->
@@ -117,6 +117,16 @@
                     
                     <!-- 【タブ1：ホーム】 -->
                     <section id="tab-home" class="tab-content active">
+                        
+                        <!-- 速報・お知らせ通知バナー（電光掲示板風ネオン点滅） 🆕 -->
+                        <div class="ticker-banner-container" id="ticker-notification-banner" style="display: none;">
+                            <div class="ticker-glow"></div>
+                            <span class="ticker-tag" id="ticker-banner-tag">ALERT</span>
+                            <div class="ticker-scroll">
+                                <span class="ticker-text" id="ticker-banner-text">--</span>
+                            </div>
+                        </div>
+
                         <!-- 1. 伝達事項テキストエリア（重要ピン留め＆通常2段組） -->
                         <div class="section-container">
                             <div class="section-header">
@@ -835,6 +845,6 @@
         </div>
     </div>
     
-    <script src="app.js?v=20260703_1"></script>
+    <script src="app.js?v=20260703_2"></script>
 </body>
 </html>

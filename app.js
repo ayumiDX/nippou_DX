@@ -544,6 +544,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             loadMemoLocal();
         }
+        
+        // 🆕 新規追加お知らせバナーの更新
+        checkAndDisplayNewAlerts();
     }
 
     function loadMemoLocal() {
@@ -1359,6 +1362,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (requestsListContainer) requestsListContainer.appendChild(card);
             });
         }
+
+        // 🆕 新規追加お知らせバナーの更新
+        checkAndDisplayNewAlerts();
     }
 
     function loadRequestsLocal() {
@@ -1972,6 +1978,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (troublesListContainer) troublesListContainer.appendChild(card);
             });
         }
+
+        // 🆕 新規追加お知らせバナーの更新
+        checkAndDisplayNewAlerts();
     }
 
     function loadTroublesLocal() {
@@ -3503,6 +3512,108 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         return card;
+    }
+
+    // 🆕 直近24時間以内の「お願いごと」や「故障トラブル」の新規追加を検知してお知らせバナーに表示＆点滅させる関数
+    async function checkAndDisplayNewAlerts() {
+        const banner = document.getElementById('ticker-notification-banner');
+        const bannerText = document.getElementById('ticker-banner-text');
+        const bannerTag = document.getElementById('ticker-banner-tag');
+        if (!banner || !bannerText || !bannerTag) return;
+
+        let troubles = [];
+        let requests = [];
+
+        // 1. 故障トラブルの取得
+        if (GAS_API_URL) {
+            try {
+                const response = await fetch(`${GAS_API_URL}?action=getTroubles`);
+                if (response.ok) troubles = await response.json();
+            } catch (e) {
+                troubles = loadTroublesLocal();
+            }
+        } else {
+            troubles = loadTroublesLocal();
+        }
+
+        // 2. お願いごとの取得
+        if (GAS_API_URL) {
+            try {
+                const response = await fetch(`${GAS_API_URL}?action=getRequests`);
+                if (response.ok) requests = await response.json();
+            } catch (e) {
+                requests = loadRequestsLocal();
+            }
+        } else {
+            requests = loadRequestsLocal();
+        }
+
+        // 未対応のもののみを対象にする
+        const activeTroubles = troubles.filter(t => t.status !== '完了' && t.status !== '済');
+        const activeRequests = requests.filter(r => r.status === '未' || !r.status);
+
+        const allAlerts = [];
+        const now = new Date();
+        const limitMs = 24 * 60 * 60 * 1000; // 24時間以内
+
+        // 故障トラブルを変換
+        activeTroubles.forEach(t => {
+            if (t.timestamp) {
+                const tDate = new Date(t.timestamp);
+                if (!isNaN(tDate.getTime()) && (now - tDate) < limitMs) {
+                    allAlerts.push({
+                        type: 'trouble',
+                        time: tDate,
+                        timeStr: t.timestamp.split(' ')[1] || t.timestamp,
+                        dateStr: `${tDate.getMonth()+1}/${tDate.getDate()}`,
+                        location: t.location,
+                        title: t.title,
+                        rawTime: tDate.getTime()
+                    });
+                }
+            }
+        });
+
+        // お願いごとを変換
+        activeRequests.forEach(r => {
+            if (r.timestamp) {
+                const rDate = new Date(r.timestamp);
+                if (!isNaN(rDate.getTime()) && (now - rDate) < limitMs) {
+                    allAlerts.push({
+                        type: 'request',
+                        time: rDate,
+                        timeStr: r.timestamp.split(' ')[1] || r.timestamp,
+                        dateStr: `${rDate.getMonth()+1}/${rDate.getDate()}`,
+                        sender: r.sender,
+                        content: r.content,
+                        rawTime: rDate.getTime()
+                    });
+                }
+            }
+        });
+
+        if (allAlerts.length === 0) {
+            banner.style.display = 'none';
+            return;
+        }
+
+        // 最も新しい順にソート
+        allAlerts.sort((a, b) => b.rawTime - a.rawTime);
+
+        const latest = allAlerts[0];
+        banner.className = 'ticker-banner-container'; // クラスリセット
+
+        if (latest.type === 'trouble') {
+            banner.classList.add('theme-red');
+            bannerTag.textContent = '故障アラート';
+            bannerText.textContent = `${latest.dateStr} ${latest.timeStr} 追加 ➔ 【故障台】${latest.location}：${latest.title} が新規報告されました！`;
+        } else {
+            banner.classList.add('theme-cyan');
+            bannerTag.textContent = 'お願いごと';
+            bannerText.textContent = `${latest.dateStr} ${latest.timeStr} 追加 ➔ 【依頼】${latest.sender}より：${latest.content}`;
+        }
+
+        banner.style.display = 'flex';
     }
 
 });
