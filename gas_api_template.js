@@ -1,5 +1,61 @@
 const ss = SpreadsheetApp.getActiveSpreadsheet();
-const LINE_TOKEN = 'mtmWf1l7fpzMg0k1XUwSwD8s8xBZ+I76W/H9Q5R4hDludwCI8NFTLUt2ZS8uOAX4F63q3OUyoRGex3j2VqW2Qbob7nkBSob2MwSFnQEJTDvHQwkslmILOlhk4aZB7SWyP+0MYuZgAo2xC+fa95RWTgdB04t89/1O/w1cDnyilFU=';
+const LINE_TOKEN_PROPERTY = 'LINE_CHANNEL_ACCESS_TOKEN';
+
+const IMPORTANT_RETENTION_DAYS = 7;
+const TROUBLE_SCHEDULE_COLUMNS = [
+  '書類作成日', '書類作成完了',
+  '書類提出日', '書類提出完了',
+  'メーカー検査日', 'メーカー検査完了',
+  '警察検査日', '警察検査完了',
+  '書類取り日', '書類取り完了'
+];
+
+function isWithinLastCalendarDays(dateValue, days) {
+  if (!dateValue) return false;
+  const recordDate = new Date(dateValue);
+  if (isNaN(recordDate.getTime())) return false;
+
+  const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  const threshold = new Date(today + 'T00:00:00+09:00');
+  threshold.setDate(threshold.getDate() - (days - 1));
+  return recordDate >= threshold;
+}
+
+function ensureTroubleScheduleColumns(sheet) {
+  const lastColumn = Math.max(sheet.getLastColumn(), 6);
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  let nextColumn = headers.length + 1;
+
+  TROUBLE_SCHEDULE_COLUMNS.forEach(function(header) {
+    if (headers.indexOf(header) === -1) {
+      sheet.getRange(1, nextColumn).setValue(header);
+      headers.push(header);
+      nextColumn++;
+    }
+  });
+  return headers;
+}
+
+function getRowValueByHeader(row, headers, header) {
+  const index = headers.indexOf(header);
+  return index >= 0 ? row[index] : '';
+}
+
+function formatDateForInput(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value.toString();
+  return Utilities.formatDate(date, 'Asia/Tokyo', 'yyyy-MM-dd');
+}
+
+function parseDoneValue(value) {
+  return value === true || value === 1 || value === '1' || value === 'TRUE' || value === '済' || value === '完了';
+}
+
+function setValueByHeader(sheet, rowId, headers, header, value) {
+  const index = headers.indexOf(header);
+  if (index >= 0) sheet.getRange(rowId, index + 1).setValue(value);
+}
 
 /**
  * 【GET】ポータルアプリからのデータ読み込み処理
@@ -60,7 +116,7 @@ function doGet(e) {
       }
       
       const memoLastRow = memoSheet.getLastRow();
-      let pinnedDetail = '';
+      let pinnedDetailList = [];
       let detailList = [];
       let lastTimestamp = '';
       
@@ -75,8 +131,8 @@ function doGet(e) {
           // LINEからの「📌 重要」も、アプリからの「重要」も拾う設定
           const isImportant = category.includes('重要');
           
-          if (isImportant && !pinnedDetail && content) {
-            pinnedDetail = content;
+          if (isImportant && content && isWithinLastCalendarDays(regTime, IMPORTANT_RETENTION_DAYS)) {
+            pinnedDetailList.push(content);
             if (!lastTimestamp && regTime) lastTimestamp = Utilities.formatDate(new Date(regTime), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
           }
           
@@ -88,7 +144,7 @@ function doGet(e) {
       }
       
       obj.title = '伝達事項';
-      obj.pinnedDetail = pinnedDetail || '現在、重要なピン留め連絡はありません。';
+      obj.pinnedDetail = pinnedDetailList.length > 0 ? pinnedDetailList.join('\n\n') : '現在、重要なピン留め連絡はありません。';
       obj.detail = detailList.length > 0 ? detailList.join('\n\n') : '現在、通常の伝達事項はありません。';
       obj.timestamp = lastTimestamp || '----/--/-- --:--';
       
@@ -130,10 +186,11 @@ function doGet(e) {
       result = list;
     } else if (action === 'getTroubles') {
       const sheet = ss.getSheetByName('故障トラブル');
+      const headers = ensureTroubleScheduleColumns(sheet);
       const lastRow = sheet.getLastRow();
       const list = [];
       if (lastRow > 1) {
-        const values = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+        const values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
         for (let i = 0; i < values.length; i++) {
           const row = values[i];
           const status = row[4] ? row[4].toString().trim() : '未対応';
@@ -145,7 +202,17 @@ function doGet(e) {
               title: row[2] || '設備故障',
               detail: row[3] || '',
               status: status,
-              history: row[5] || '' 
+              history: row[5] || '',
+              documentCreationDate: formatDateForInput(getRowValueByHeader(row, headers, '書類作成日')),
+              documentCreationDone: parseDoneValue(getRowValueByHeader(row, headers, '書類作成完了')),
+              documentSubmissionDate: formatDateForInput(getRowValueByHeader(row, headers, '書類提出日')),
+              documentSubmissionDone: parseDoneValue(getRowValueByHeader(row, headers, '書類提出完了')),
+              makerInspectionDate: formatDateForInput(getRowValueByHeader(row, headers, 'メーカー検査日')),
+              makerInspectionDone: parseDoneValue(getRowValueByHeader(row, headers, 'メーカー検査完了')),
+              policeInspectionDate: formatDateForInput(getRowValueByHeader(row, headers, '警察検査日')),
+              policeInspectionDone: parseDoneValue(getRowValueByHeader(row, headers, '警察検査完了')),
+              documentPickupDate: formatDateForInput(getRowValueByHeader(row, headers, '書類取り日')),
+              documentPickupDone: parseDoneValue(getRowValueByHeader(row, headers, '書類取り完了'))
             });
           }
         }
@@ -234,17 +301,37 @@ function doPost(e) {
       ]);
       result = { success: true, message: '追加しました。' };
     } else if (action === 'addTrouble') {
-      ss.getSheetByName('故障トラブル').appendRow([
-        params.timestamp ? new Date(params.timestamp) : new Date(),
-        params.location, params.title, params.detail, '未対応', ''
-      ]);
+      const sheet = ss.getSheetByName('故障トラブル');
+      const headers = ensureTroubleScheduleColumns(sheet);
+      const row = new Array(headers.length).fill('');
+      row[0] = params.timestamp ? new Date(params.timestamp) : new Date();
+      row[1] = params.location;
+      row[2] = params.title;
+      row[3] = params.detail;
+      row[4] = '未対応';
+      row[5] = '';
+      sheet.appendRow(row);
       result = { success: true, message: '追加しました。' };
     } else if (action === 'updateTroubleStatus') {
       const sheet = ss.getSheetByName('故障トラブル');
+      const headers = ensureTroubleScheduleColumns(sheet);
       const rowId = parseInt(params.id);
       if (rowId >= 2 && rowId <= sheet.getLastRow()) {
+        sheet.getRange(rowId, 2).setValue(params.location || '');
+        sheet.getRange(rowId, 3).setValue(params.title || '');
+        sheet.getRange(rowId, 4).setValue(params.detail || '');
         sheet.getRange(rowId, 5).setValue(params.status);
         sheet.getRange(rowId, 6).setValue(params.history || '');
+        setValueByHeader(sheet, rowId, headers, '書類作成日', params.documentCreationDate || '');
+        setValueByHeader(sheet, rowId, headers, '書類作成完了', params.documentCreationDone === 'true');
+        setValueByHeader(sheet, rowId, headers, '書類提出日', params.documentSubmissionDate || '');
+        setValueByHeader(sheet, rowId, headers, '書類提出完了', params.documentSubmissionDone === 'true');
+        setValueByHeader(sheet, rowId, headers, 'メーカー検査日', params.makerInspectionDate || '');
+        setValueByHeader(sheet, rowId, headers, 'メーカー検査完了', params.makerInspectionDone === 'true');
+        setValueByHeader(sheet, rowId, headers, '警察検査日', params.policeInspectionDate || '');
+        setValueByHeader(sheet, rowId, headers, '警察検査完了', params.policeInspectionDone === 'true');
+        setValueByHeader(sheet, rowId, headers, '書類取り日', params.documentPickupDate || '');
+        setValueByHeader(sheet, rowId, headers, '書類取り完了', params.documentPickupDone === 'true');
         result = { success: true, message: '更新しました。' };
       } else { throw new Error('ID無効'); }
     } else if (action === 'updateCleaningStatus') {
@@ -330,12 +417,16 @@ function handleLineWebhook(event) {
  * LINEに返信する関数
  */
 function replyToLine(replyToken, text) {
+  const lineToken = PropertiesService.getScriptProperties().getProperty(LINE_TOKEN_PROPERTY);
+  if (!lineToken) {
+    throw new Error('LINE channel access token is not configured in Script Properties.');
+  }
   const url = 'https://api.line.me/v2/bot/message/reply';
   const options = {
     'method': 'post',
     'headers': {
       'Content-Type': 'application/json; charset=UTF-8',
-      'Authorization': 'Bearer ' + LINE_TOKEN
+      'Authorization': 'Bearer ' + lineToken
     },
     'payload': JSON.stringify({
       'replyToken': replyToken,
