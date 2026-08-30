@@ -24,18 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginSuccessPopup = document.getElementById('login-success-popup');
     const welcomeUserText = document.getElementById('welcome-user-text');
 
-    // ローカル個別ログイン用モックユーザーデータ（フォールバック用）
-    const LOCAL_USERS = {
-        'admin': { password: 'password123', userName: '管理者' },
-        'yamada': { password: 'arena_yamada', userName: '山田リーダー' },
-        'sato': { password: 'arena_sato', userName: '佐藤' },
-        'suzuki': { password: 'arena_suzuki', userName: '鈴木' }
-    };
-
     // 起動時のロック状態チェック（解除済みなら即座にスキップ）
     if (lockScreen) {
-        const isUnlocked = localStorage.getItem('arena_is_unlocked');
-        const unlockedAt = localStorage.getItem('arena_unlocked_at');
+        const isUnlocked = sessionStorage.getItem('arena_is_unlocked');
+        const unlockedAt = sessionStorage.getItem('arena_unlocked_at');
         const now = Date.now();
         const LOCK_TIMEOUT = 12 * 60 * 60 * 1000; // 12時間（自動ロック時間）
 
@@ -52,7 +44,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // セッションが無効、または期限切れの場合はクリアしてロック
             sessionStorage.removeItem('arena_is_unlocked');
-            localStorage.removeItem('arena_unlocked_at');
+            sessionStorage.removeItem('arena_unlocked_at');
+            sessionStorage.removeItem('arena_user_name');
+            sessionStorage.removeItem('arena_passcode');
             
             // 解除されていない場合はログインID入力欄に自動フォーカス
             setTimeout(() => {
@@ -113,31 +107,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         errorMsg = resData.error || 'ACCESS DENIED: INVALID ID OR PASSWORD';
                     }
                 } else {
-                    // APIエラー時はローカルモックにフォールバック
-                    console.warn('GASログインAPIがエラーを返しました。ローカルモックで判定します。');
-                    const localRes = verifyLocalLogin(loginId, password);
-                    success = localRes.success;
-                    userName = localRes.userName;
+                    console.warn('GASログインAPIがエラーを返しました。');
+                    errorMsg = '認証サーバーに接続できません。時間をおいて再度お試しください。';
                 }
             } catch (e) {
-                console.error('GASログインAPI通信失敗。ローカルモックで判定します。', e);
-                const localRes = verifyLocalLogin(loginId, password);
-                success = localRes.success;
-                userName = localRes.userName;
+                console.error('GASログインAPI通信失敗。', e);
+                errorMsg = '認証サーバーに接続できません。通信環境をご確認ください。';
             }
         } else {
-            // GAS_API_URL が空の場合はローカルモックで判定
-            const localRes = verifyLocalLogin(loginId, password);
-            success = localRes.success;
-            userName = localRes.userName;
+            errorMsg = '認証サーバーが設定されていません。管理者へご連絡ください。';
         }
 
         if (success) {
-            // ログイン成功処理（localStorageによるログイン状態の永続保存）
-            localStorage.setItem('arena_is_unlocked', 'true');
-            localStorage.setItem('arena_user_name', userName);
-            localStorage.setItem('arena_unlocked_at', Date.now().toString()); // ロック解除時刻を記録
-            localStorage.setItem('arena_passcode', password); // パスコードを保存（認証用）
+            // 認証情報はタブを閉じると消える sessionStorage にのみ保持する
+            sessionStorage.setItem('arena_is_unlocked', 'true');
+            sessionStorage.setItem('arena_user_name', userName);
+            sessionStorage.setItem('arena_unlocked_at', Date.now().toString());
+            sessionStorage.setItem('arena_passcode', password);
 
             // 成功ポップアップにユーザー名を設定し、表示
             if (welcomeUserText) welcomeUserText.textContent = `${userName}さん、お疲れ様です`;
@@ -188,16 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ローカルでのログイン検証
-    function verifyLocalLogin(loginId, password) {
-        const targetId = loginId.toLowerCase();
-        const user = LOCAL_USERS[targetId];
-        if (user && user.password === password) {
-            return { success: true, userName: user.userName };
-        }
-        return { success: false };
-    }
-
     // ログインエラーメッセージの表示
     function showLoginError(msg) {
         if (lockScreenError) {
@@ -229,9 +205,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLockManual = document.getElementById('btn-lock-manual');
     if (btnLockManual) {
         btnLockManual.addEventListener('click', () => {
-            localStorage.removeItem('arena_is_unlocked');
-            localStorage.removeItem('arena_unlocked_at');
-            localStorage.removeItem('arena_user_name');
+            sessionStorage.removeItem('arena_is_unlocked');
+            sessionStorage.removeItem('arena_unlocked_at');
+            sessionStorage.removeItem('arena_user_name');
+            sessionStorage.removeItem('arena_passcode');
             location.reload(); // リロードしてログイン画面を強制表示
         });
     }
@@ -364,6 +341,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const memoPinnedTextarea = document.getElementById('memo-pinned-textarea');
     const inputMemoPinned = document.getElementById('input-memo-pinned');
 
+    // 伝達事項の全画面確認用要素
+    const memoDetailOverlay = document.getElementById('memo-detail-overlay');
+    const memoDetailClose = document.getElementById('memo-detail-close');
+    const memoDetailPinned = document.getElementById('memo-detail-pinned');
+    const memoDetailNormal = document.getElementById('memo-detail-normal');
+    const memoDetailTriggers = document.querySelectorAll('[data-memo-detail-trigger]');
+
     // 獲得会員数編集用の要素
     const memberEditOverlay = document.getElementById('member-edit-overlay');
     const editMemberBtn = document.getElementById('edit-member-btn');
@@ -474,6 +458,90 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     initLocalStorage();
 
+    // 登録日を含めた直近n日間かを日付単位で判定する。
+    function isWithinLastCalendarDays(dateValue, days) {
+        if (!dateValue) return false;
+        const normalized = String(dateValue).replace(/\//g, '-').replace(' ', 'T');
+        const recordDate = new Date(normalized);
+        if (Number.isNaN(recordDate.getTime())) return false;
+
+        const threshold = new Date();
+        threshold.setHours(0, 0, 0, 0);
+        threshold.setDate(threshold.getDate() - (days - 1));
+        return recordDate >= threshold;
+    }
+
+    function fitMemoDetailText(element) {
+        if (!element) return;
+        let fontSize = 14;
+        let lineHeight = 1.45;
+        element.style.fontSize = `${fontSize}px`;
+        element.style.lineHeight = String(lineHeight);
+
+        while (element.scrollHeight > element.clientHeight && fontSize > 6) {
+            fontSize -= 0.5;
+            if (fontSize < 9) lineHeight = 1.25;
+            element.style.fontSize = `${fontSize}px`;
+            element.style.lineHeight = String(lineHeight);
+        }
+    }
+
+    function openMemoDetail() {
+        if (!memoDetailOverlay) return;
+        if (memoDetailPinned) {
+            memoDetailPinned.textContent = memoPinnedTextarea && memoPinnedTextarea.value
+                ? memoPinnedTextarea.value
+                : '現在、重要な連絡はありません。';
+        }
+        if (memoDetailNormal) {
+            memoDetailNormal.textContent = memoTextarea && memoTextarea.value
+                ? memoTextarea.value
+                : '現在、通常の伝達事項はありません。';
+        }
+
+        memoDetailOverlay.classList.add('active');
+        memoDetailOverlay.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(() => {
+            fitMemoDetailText(memoDetailPinned);
+            fitMemoDetailText(memoDetailNormal);
+        });
+    }
+
+    function closeMemoDetail() {
+        if (!memoDetailOverlay) return;
+        memoDetailOverlay.classList.remove('active');
+        memoDetailOverlay.setAttribute('aria-hidden', 'true');
+    }
+
+    memoDetailTriggers.forEach(trigger => {
+        trigger.addEventListener('click', openMemoDetail);
+        trigger.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openMemoDetail();
+            }
+        });
+    });
+    if (memoDetailClose) memoDetailClose.addEventListener('click', closeMemoDetail);
+    if (memoDetailOverlay) {
+        memoDetailOverlay.addEventListener('click', event => {
+            if (event.target === memoDetailOverlay) closeMemoDetail();
+        });
+    }
+    window.addEventListener('resize', () => {
+        if (memoDetailOverlay && memoDetailOverlay.classList.contains('active')) {
+            requestAnimationFrame(() => {
+                fitMemoDetailText(memoDetailPinned);
+                fitMemoDetailText(memoDetailNormal);
+            });
+        }
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && memoDetailOverlay && memoDetailOverlay.classList.contains('active')) {
+            closeMemoDetail();
+        }
+    });
+
     // 伝達事項のデータ取得
     async function loadMemoData() {
         if (memoSaveStatus) {
@@ -576,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (dataStr) {
                 const list = JSON.parse(dataStr);
-                let pinnedDetail = '';
+                let pinnedDetailList = [];
                 let detailList = [];
                 let lastTimestamp = '';
                 
@@ -590,8 +658,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     // LINEからの「📌 重要」も、アプリからの「重要」も拾う設定
                     const isImportant = category.includes('重要');
                     
-                    if (isImportant && !pinnedDetail && content) {
-                        pinnedDetail = content;
+                    if (isImportant && content && isWithinLastCalendarDays(regTime, 7)) {
+                        pinnedDetailList.push(content);
                         if (!lastTimestamp && regTime) {
                             lastTimestamp = regTime;
                         }
@@ -608,7 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 if (memoTitleDisplay) memoTitleDisplay.textContent = '伝達事項'; // タイトルは『伝達事項』で固定
-                if (memoPinnedTextarea) memoPinnedTextarea.value = pinnedDetail || '【重要なお知らせ】\n現在、重要なピン留め連絡はありません。';
+                if (memoPinnedTextarea) memoPinnedTextarea.value = pinnedDetailList.length > 0 ? pinnedDetailList.join('\n\n') : '現在、重要なピン留め連絡はありません。';
                 if (memoTextarea) memoTextarea.value = detailList.length > 0 ? detailList.join('\n\n') : '【通常の伝達事項】\n現在、通常の伝達事項はありません。';
                 if (memoTime) memoTime.textContent = `最終更新: ${lastTimestamp || '----/--/-- --:--'}`;
             } else {
@@ -680,7 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         action: actionName,
                         detail: detail,
                         category: category,
-                        passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                     };
                     if (isEdit) {
                         postParams.id = currentEditingMemoId;
@@ -793,6 +861,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCleaningScrollB = document.getElementById('btn-cleaning-scroll-b');
     const btnCleaningReset = document.getElementById('btn-cleaning-reset');
     const cleaningCanvasScrollContainer = document.getElementById('cleaning-canvas-scroll-container');
+    const cleaningDateInput = document.getElementById('cleaning-date-input');
+
+    if (cleaningDateInput) {
+        cleaningDateInput.addEventListener('change', () => {
+            if (cleaningDateInput.value) {
+                localStorage.setItem('arena_cassette_cleaning_date', cleaningDateInput.value);
+            }
+        });
+    }
 
     const layoutData = [
         // 1行目: 1A(1〜20) / 1B(21〜40) の上列台
@@ -892,14 +969,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (appNavBar) appNavBar.style.display = 'none';
         }
 
-        // 日付入力欄に本日の日付を初期値として設定（空の場合のみ）
-        const dateInput = document.getElementById('cleaning-date-input');
-        if (dateInput && !dateInput.value) {
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            dateInput.value = `${yyyy}-${mm}-${dd}`;
+        // 最後に選択した清掃日を保持し、未設定時だけ本日を初期値にする。
+        if (cleaningDateInput && !cleaningDateInput.value) {
+            const savedDate = localStorage.getItem('arena_cassette_cleaning_date');
+            if (savedDate) {
+                cleaningDateInput.value = savedDate;
+            } else {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                cleaningDateInput.value = `${yyyy}-${mm}-${dd}`;
+                localStorage.setItem('arena_cassette_cleaning_date', cleaningDateInput.value);
+            }
         }
 
         fetchCassetteCleanings();
@@ -985,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         },
                         body: new URLSearchParams({
                             action: 'resetCassetteCleanings',
-                            passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                         })
                     });
 
@@ -1136,7 +1218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isCleaned = cell.classList.contains('cleaned');
         const newStatus = isCleaned ? '未' : '済';
         
-        const executor = localStorage.getItem('arena_user_name') || 'スタッフ';
+        const executor = sessionStorage.getItem('arena_user_name') || 'スタッフ';
         const now = new Date();
 
         // 選択された日付を読み込み、現在時刻と結合する
@@ -1190,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         status: newStatus,
                         executor: executor,
                         timestamp: timestamp,
-                        passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                     })
                 });
                 
@@ -1448,7 +1530,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             action: 'updateRequestStatus',
                             id: rowId,
                             status: '済',
-                            passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                         })
                     });
                     if (response.ok) {
@@ -1569,7 +1651,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         content: content,
                         assignee: assignee || '全員',
                         deadline: deadline || 'なし',
-                        passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                     };
                     if (isEdit) {
                         postParams.id = currentEditingRequestId;
@@ -1737,7 +1819,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         shift: shift,
                         category: category,
                         task: task,
-                        passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                     };
                     if (isEdit) {
                         postParams.id = currentEditingCleaningId;
@@ -1836,7 +1918,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: new URLSearchParams({
                             action: 'deleteWeeklyCleaning',
                             id: currentEditingCleaningId,
-                            passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                         })
                     });
                     
@@ -1917,9 +1999,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewTrbTime = document.getElementById('view-trb-time');
     const editTrbStatus = document.getElementById('edit-trb-status');
     const editTrbHistory = document.getElementById('edit-trb-history');
+    const troubleScheduleFields = {
+        documentCreation: {
+            date: document.getElementById('trb-document-creation-date'),
+            done: document.getElementById('trb-document-creation-done')
+        },
+        documentSubmission: {
+            date: document.getElementById('trb-document-submission-date'),
+            done: document.getElementById('trb-document-submission-done')
+        },
+        makerInspection: {
+            date: document.getElementById('trb-maker-inspection-date'),
+            done: document.getElementById('trb-maker-inspection-done')
+        },
+        policeInspection: {
+            date: document.getElementById('trb-police-inspection-date'),
+            done: document.getElementById('trb-police-inspection-done')
+        },
+        documentPickup: {
+            date: document.getElementById('trb-document-pickup-date'),
+            done: document.getElementById('trb-document-pickup-done')
+        }
+    };
 
     // 現在編集中のトラブルID（スプレッドシートの行番号ID） 🆕
     let currentEditingTroubleId = null;
+
+    function normalizeDateInputValue(value) {
+        if (!value) return '';
+        const raw = String(value);
+        const directMatch = raw.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+        if (directMatch) {
+            return `${directMatch[1]}-${directMatch[2].padStart(2, '0')}-${directMatch[3].padStart(2, '0')}`;
+        }
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) return '';
+        return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+    }
+
+    function toBoolean(value) {
+        return value === true || value === 1 || String(value).toLowerCase() === 'true' || value === '済' || value === '完了';
+    }
+
+    function applyTroubleSchedule(scheduleSource = {}) {
+        Object.entries(troubleScheduleFields).forEach(([key, fields]) => {
+            if (fields.date) fields.date.value = normalizeDateInputValue(scheduleSource[`${key}Date`]);
+            if (fields.done) fields.done.checked = toBoolean(scheduleSource[`${key}Done`]);
+        });
+    }
+
+    function readTroubleSchedule() {
+        const schedule = {};
+        Object.entries(troubleScheduleFields).forEach(([key, fields]) => {
+            schedule[`${key}Date`] = fields.date ? fields.date.value : '';
+            schedule[`${key}Done`] = fields.done ? fields.done.checked : false;
+        });
+        return schedule;
+    }
 
     // 故障報告一覧を開く
     if (btnTriggerTroubles) {
@@ -2088,6 +2224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editTrbHistory) {
             editTrbHistory.value = trb.history || '';
         }
+        applyTroubleSchedule(trb);
 
         // 編集モーダルをアクティブ化
         if (troubleEditOverlay) troubleEditOverlay.classList.add('active');
@@ -2111,6 +2248,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const detail = editTrbDetailInput ? editTrbDetailInput.value.trim() : '';
             const status = editTrbStatus.value;
             const history = editTrbHistory.value.trim();
+            const schedule = readTroubleSchedule();
 
             if (!location || !title) {
                 alert('「場所（台番）」と「トラブル内容」は必須入力項目です。');
@@ -2137,7 +2275,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             detail: detail,
                             status: status,
                             history: history,
-                            passcode: localStorage.getItem('arena_passcode') || ''
+                            documentCreationDate: schedule.documentCreationDate,
+                            documentCreationDone: schedule.documentCreationDone,
+                            documentSubmissionDate: schedule.documentSubmissionDate,
+                            documentSubmissionDone: schedule.documentSubmissionDone,
+                            makerInspectionDate: schedule.makerInspectionDate,
+                            makerInspectionDone: schedule.makerInspectionDone,
+                            policeInspectionDate: schedule.policeInspectionDate,
+                            policeInspectionDone: schedule.policeInspectionDone,
+                            documentPickupDate: schedule.documentPickupDate,
+                            documentPickupDone: schedule.documentPickupDone,
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                         })
                     });
                     if (response.ok) {
@@ -2151,13 +2299,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         throw new Error('通信エラーが発生しました。');
                     }
-                    updateTroubleStatusLocal(rowId, status, history, location, title, detail);
+                    updateTroubleStatusLocal(rowId, status, history, location, title, detail, schedule);
                 } catch (e) {
                     console.error('スプレッドシートのトラブル更新に失敗しました。ローカル保存します。', e);
-                    updateTroubleStatusLocal(rowId, status, history, location, title, detail);
+                    updateTroubleStatusLocal(rowId, status, history, location, title, detail, schedule);
                 }
             } else {
-                updateTroubleStatusLocal(rowId, status, history, location, title, detail);
+                updateTroubleStatusLocal(rowId, status, history, location, title, detail, schedule);
             }
 
             // モーダルを閉じ、要素を復元
@@ -2186,7 +2334,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ローカル側トラブルのステータス＆対応履歴＆登録内容上書き更新
-    function updateTroubleStatusLocal(id, newStatus, newHistory, newLocation, newTitle, newDetail) {
+    function updateTroubleStatusLocal(id, newStatus, newHistory, newLocation, newTitle, newDetail, schedule = {}) {
         try {
             const dataStr = localStorage.getItem('arena_troubles');
             if (dataStr) {
@@ -2199,7 +2347,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             history: newHistory,
                             location: newLocation !== undefined ? newLocation : item.location,
                             title: newTitle !== undefined ? newTitle : item.title,
-                            detail: newDetail !== undefined ? newDetail : item.detail
+                            detail: newDetail !== undefined ? newDetail : item.detail,
+                            ...schedule
                         };
                     }
                     return item;
@@ -2256,14 +2405,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         },
                         body: new URLSearchParams({
                             action: 'addTrouble',
-                            reporter: localStorage.getItem('arena_user_name') || 'スタッフ',
+                            reporter: sessionStorage.getItem('arena_user_name') || 'スタッフ',
                             location: location,
                             title: title,
                             detail: detail,
                             timestamp: formattedTime,
                             status: '未対応', 
                             history: '',
-                            passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                         })
                     });
                     if (response.ok) {
@@ -2306,7 +2455,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: title,
                 detail: detail,
                 status: '未対応',
-                history: ''       
+                history: '',
+                documentCreationDate: '',
+                documentCreationDone: false,
+                documentSubmissionDate: '',
+                documentSubmissionDone: false,
+                makerInspectionDate: '',
+                makerInspectionDone: false,
+                policeInspectionDate: '',
+                policeInspectionDone: false,
+                documentPickupDate: '',
+                documentPickupDone: false
             };
 
             list.push(newTrouble);
@@ -2608,7 +2767,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             action: 'updateCleaningStatus',
                             id: rowId,
                             status: newStatus,
-                            passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                         })
                     });
                     if (response.ok) {
@@ -2658,7 +2817,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             action: 'updateCleaningExecutor',
                             id: rowId,
                             executor: selectedVal,
-                            passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                         })
                     });
                     if (response.ok) {
@@ -3032,7 +3191,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: new URLSearchParams({
                             action: 'updateMembers',
                             currentMembers: newCurrentVal,
-                            passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                         })
                     });
                     if (response.ok) {
@@ -3208,7 +3367,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             action: 'updateLotteryWalkIn',
                             lotteryCount: lotteryVal,
                             walkInCount: walkInVal,
-                            passcode: localStorage.getItem('arena_passcode') || ''
+                        passcode: sessionStorage.getItem('arena_passcode') || ''
                         })
                     });
                     if (response.ok) {
