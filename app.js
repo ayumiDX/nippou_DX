@@ -7,6 +7,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // 空欄の場合は、自動的でブラウザの「ローカルストレージ（localStorage）」を使用した100%完動する模擬（モック）システムとして動作します。
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyf_RhLhMv1C0M4OsZ_AatkRHlLjayJQzRtxuBtYCMEb425Yj_4N1LYFt1p1t0PtG8p/exec'; 
 
+    function buildAuthenticatedGasUrl(params) {
+        const url = new URL(GAS_API_URL);
+        Object.entries(params || {}).forEach(([key, value]) => {
+            url.searchParams.set(key, value);
+        });
+        url.searchParams.set('passcode', sessionStorage.getItem('arena_passcode') || '');
+        return url.toString();
+    }
+
     // 編集ステートの管理用変数 🆕
     let currentEditingRequestId = null;
     let currentEditingMemoId = null;
@@ -552,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (GAS_API_URL) {
             try {
                 console.log('GAS APIデータ取得開始 URL:', GAS_API_URL);
-                const response = await fetch(`${GAS_API_URL}?action=getHome`);
+                const response = await fetch(buildAuthenticatedGasUrl({ action: 'getHome' }));
                 if (!response.ok) throw new Error('通信エラー');
                 const data = await response.json();
                 console.log('GAS APIデータ取得成功 レスポンス:', data);
@@ -941,7 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (GAS_API_URL) {
             try {
-                const response = await fetch(`${GAS_API_URL}?action=getCassetteCleanings`);
+                const response = await fetch(buildAuthenticatedGasUrl({ action: 'getCassetteCleanings' }));
                 if (response.ok) {
                     const data = await response.json();
                     if (Array.isArray(data) && data.length > 0) {
@@ -1421,7 +1430,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (GAS_API_URL) {
             try {
-                const response = await fetch(`${GAS_API_URL}?action=getRequests`);
+                const response = await fetch(buildAuthenticatedGasUrl({ action: 'getRequests' }));
                 if (!response.ok) throw new Error('通信エラー');
                 requests = await response.json();
             } catch (e) {
@@ -2091,7 +2100,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (GAS_API_URL) {
             try {
-                const response = await fetch(`${GAS_API_URL}?action=getTroubles`);
+                const response = await fetch(buildAuthenticatedGasUrl({ action: 'getTroubles' }));
                 if (!response.ok) throw new Error('通信エラー');
                 list = await response.json();
             } catch (e) {
@@ -2557,7 +2566,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (GAS_API_URL) {
             try {
                 // 🌟 GAS側の仕様に合わせ、曜日清掃シート名を明示的にクエリパラメータに指定
-                const fetchUrl = `${GAS_API_URL}?sheetName=${encodeURIComponent('曜日清掃・作業')}`;
+                const fetchUrl = buildAuthenticatedGasUrl({ sheetName: '曜日清掃・作業' });
                 console.log('曜日清掃フェッチ要求URL:', fetchUrl);
                 
                 const response = await fetch(fetchUrl);
@@ -3550,7 +3559,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (GAS_API_URL) {
             try {
                 // スプレッドシートの「伝達事項」シート全件を一括GET
-                const fetchUrl = `${GAS_API_URL}?sheetName=${encodeURIComponent('伝達事項')}`;
+                const fetchUrl = buildAuthenticatedGasUrl({ sheetName: '伝達事項' });
                 const response = await fetch(fetchUrl);
                 if (!response.ok) throw new Error('通信エラー');
                 list = await response.json();
@@ -3697,7 +3706,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. 故障トラブルの取得
         if (GAS_API_URL) {
             try {
-                const response = await fetch(`${GAS_API_URL}?action=getTroubles`);
+                const response = await fetch(buildAuthenticatedGasUrl({ action: 'getTroubles' }));
                 if (response.ok) troubles = await response.json();
             } catch (e) {
                 troubles = loadTroublesLocal();
@@ -3709,7 +3718,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. お願いごとの取得
         if (GAS_API_URL) {
             try {
-                const response = await fetch(`${GAS_API_URL}?action=getRequests`);
+                const response = await fetch(buildAuthenticatedGasUrl({ action: 'getRequests' }));
                 if (response.ok) requests = await response.json();
             } catch (e) {
                 requests = loadRequestsLocal();
