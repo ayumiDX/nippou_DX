@@ -382,6 +382,19 @@ body {
     box-shadow: 0 0 15px rgba(255, 0, 85, 0.15);
 }
 
+.memo-preview-trigger {
+    cursor: pointer;
+}
+
+.memo-preview-trigger:focus-visible {
+    outline: 2px solid var(--neon-blue);
+    outline-offset: 2px;
+}
+
+.memo-preview-trigger textarea {
+    pointer-events: none;
+}
+
 .pinned-header {
     font-size: 11px;
     font-weight: 700;
@@ -390,6 +403,13 @@ body {
     display: flex;
     align-items: center;
     gap: 4px;
+}
+
+.memo-expand-hint {
+    margin-left: auto;
+    color: var(--text-secondary);
+    font-size: 9px;
+    font-weight: 500;
 }
 
 .memo-textarea-small {
@@ -444,6 +464,74 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     padding-top: 8px;
     font-size: 10px;
+}
+
+/* 伝達事項の全画面確認。画面内に全文を収めるためスクロールを持たせない。 */
+.memo-detail-overlay {
+    padding: 12px;
+    overflow: hidden;
+}
+
+.memo-detail-modal {
+    width: 100%;
+    max-width: 620px;
+    height: calc(100% - 4px);
+    max-height: 760px;
+    display: flex;
+    flex-direction: column;
+}
+
+.memo-detail-header {
+    flex: 0 0 auto;
+    padding: 12px 16px;
+}
+
+.memo-detail-body {
+    flex: 1;
+    min-height: 0;
+    padding: 12px;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 10px;
+    overflow: hidden;
+}
+
+.memo-detail-section {
+    min-height: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.memo-detail-important {
+    border-color: rgba(255, 0, 85, 0.35);
+    background: rgba(255, 0, 85, 0.05);
+}
+
+.memo-detail-section h4 {
+    flex: 0 0 auto;
+    margin: 0 0 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+}
+
+.memo-detail-important h4 {
+    color: var(--theme-red);
+}
+
+.memo-detail-text {
+    flex: 1;
+    min-height: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow: hidden;
+    overflow-wrap: anywhere;
 }
 
 .memo-status {
@@ -1728,6 +1816,77 @@ body {
     margin: 16px 0;
     opacity: 0.4;
     width: 100%;
+}
+
+.trouble-schedule-panel {
+    border: 1px solid rgba(255, 0, 85, 0.22);
+    border-radius: 12px;
+    background: rgba(255, 0, 85, 0.035);
+    padding: 10px;
+}
+
+.trouble-schedule-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    color: var(--theme-red);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.trouble-schedule-header small {
+    color: var(--text-secondary);
+    font-size: 9px;
+    font-weight: 500;
+}
+
+.trouble-schedule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.trouble-schedule-row {
+    display: grid;
+    grid-template-columns: minmax(76px, 0.9fr) minmax(116px, 1.35fr) auto;
+    align-items: center;
+    gap: 7px;
+}
+
+.trouble-schedule-row > label:first-child {
+    color: var(--text-primary);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.trouble-schedule-date {
+    min-width: 0;
+    padding: 6px 7px;
+    font-size: 10px;
+    color-scheme: dark;
+}
+
+.trouble-schedule-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-size: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.trouble-schedule-check input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--theme-emerald);
+}
+
+.trouble-schedule-check input:checked + span {
+    color: var(--theme-emerald);
+    font-weight: 700;
 }
 
 /* サイバーセレクトボックス */
