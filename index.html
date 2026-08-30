@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-     <link rel="stylesheet" href="styles.css?v=20260703_4">
+     <link rel="stylesheet" href="styles.css?v=20260830_1">
 </head>
 <body>
     <!-- PC表示時にスマホサイズで中央配置するためのフレームコンテナ -->
@@ -132,16 +132,17 @@
                             </div>
                             
                             <!-- ① 📌 重要・必読ピン留めエリア -->
-                            <div class="memo-pinned-container" id="memo-pinned-area" style="margin-bottom: 10px;">
+                            <div class="memo-pinned-container memo-preview-trigger" id="memo-pinned-area" data-memo-detail-trigger role="button" tabindex="0" aria-label="伝達事項を全画面で確認" style="margin-bottom: 10px;">
                                 <div class="pinned-header">
                                     <span class="pinned-icon">📌</span> 重要・必読の連絡
+                                    <span class="memo-expand-hint">タップで全画面</span>
                                 </div>
                                 <textarea id="memo-pinned-textarea" class="memo-textarea-small" readonly placeholder="現在、重要なピン留め連絡はありません。">【重要なお知らせ】
 新台「CRネオサイバー」の稼働に伴う新台開放手順書が事務所デスクに配布されています。出勤スタッフは試打ち前に必ず目を通してください。</textarea>
                             </div>
                             
                             <!-- ② 通常の伝達事項エリア（最新履歴） -->
-                            <div class="memo-area">
+                            <div class="memo-area memo-preview-trigger" data-memo-detail-trigger role="button" tabindex="0" aria-label="伝達事項を全画面で確認">
                                 <textarea id="memo-textarea" class="memo-textarea-small" readonly placeholder="通常の伝達事項はありません。">【通常の伝達事項】
 1. 拾得物（スマートキー）が3番通路付近でありました。台帳記入の上、事務所金庫に保管済みです。
 2. 今週のシフト変更希望は明日25日の午前中までに提出完了するようにお願いします。</textarea>
@@ -586,6 +587,30 @@
             </div>
 
             <!-- --------------------------------------------------
+                 1.1 伝達事項 全画面確認モーダル
+            -------------------------------------------------- -->
+            <div class="cyber-modal-overlay memo-detail-overlay" id="memo-detail-overlay" aria-hidden="true">
+                <div class="cyber-modal memo-detail-modal" role="dialog" aria-modal="true" aria-labelledby="memo-detail-title">
+                    <div class="modal-glow"></div>
+                    <div class="modal-header memo-detail-header">
+                        <span class="modal-icon">🔔</span>
+                        <h3 id="memo-detail-title">伝達事項</h3>
+                        <button class="modal-close" id="memo-detail-close" aria-label="閉じる">&times;</button>
+                    </div>
+                    <div class="memo-detail-body" id="memo-detail-body">
+                        <section class="memo-detail-section memo-detail-important">
+                            <h4><span>📌</span> 重要・必読の連絡</h4>
+                            <div class="memo-detail-text" id="memo-detail-pinned"></div>
+                        </section>
+                        <section class="memo-detail-section memo-detail-normal">
+                            <h4><span>📝</span> 通常の伝達事項</h4>
+                            <div class="memo-detail-text" id="memo-detail-normal"></div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <!-- --------------------------------------------------
                  1.5 獲得会員数 編集用モーダル
             -------------------------------------------------- -->
             <div class="cyber-modal-overlay" id="member-edit-overlay">
@@ -760,6 +785,39 @@
                                 <option value="完了">完了</option>
                             </select>
                         </div>
+                        <div class="trouble-schedule-panel">
+                            <div class="trouble-schedule-header">
+                                <span>対応スケジュール</span>
+                                <small>日付と完了状況</small>
+                            </div>
+                            <div class="trouble-schedule-list">
+                                <div class="trouble-schedule-row">
+                                    <label for="trb-document-creation-date">書類作成</label>
+                                    <input type="date" id="trb-document-creation-date" class="cyber-input trouble-schedule-date">
+                                    <label class="trouble-schedule-check"><input type="checkbox" id="trb-document-creation-done"><span>完了</span></label>
+                                </div>
+                                <div class="trouble-schedule-row">
+                                    <label for="trb-document-submission-date">書類提出</label>
+                                    <input type="date" id="trb-document-submission-date" class="cyber-input trouble-schedule-date">
+                                    <label class="trouble-schedule-check"><input type="checkbox" id="trb-document-submission-done"><span>完了</span></label>
+                                </div>
+                                <div class="trouble-schedule-row">
+                                    <label for="trb-maker-inspection-date">メーカー検査</label>
+                                    <input type="date" id="trb-maker-inspection-date" class="cyber-input trouble-schedule-date">
+                                    <label class="trouble-schedule-check"><input type="checkbox" id="trb-maker-inspection-done"><span>完了</span></label>
+                                </div>
+                                <div class="trouble-schedule-row">
+                                    <label for="trb-police-inspection-date">警察検査</label>
+                                    <input type="date" id="trb-police-inspection-date" class="cyber-input trouble-schedule-date">
+                                    <label class="trouble-schedule-check"><input type="checkbox" id="trb-police-inspection-done"><span>完了</span></label>
+                                </div>
+                                <div class="trouble-schedule-row">
+                                    <label for="trb-document-pickup-date">書類取り</label>
+                                    <input type="date" id="trb-document-pickup-date" class="cyber-input trouble-schedule-date">
+                                    <label class="trouble-schedule-check"><input type="checkbox" id="trb-document-pickup-done"><span>完了</span></label>
+                                </div>
+                            </div>
+                        </div>
                         <div class="cyber-form-group">
                             <label for="edit-trb-history">対応履歴（追記・編集）</label>
                             <textarea id="edit-trb-history" class="cyber-textarea" style="height:70px;" placeholder="対応内容や今後の対応予定などを追記・変更してください..."></textarea>
@@ -847,6 +905,6 @@
         </div>
     </div>
     
-    <script src="app.js?v=20260703_4"></script>
+    <script src="app.js?v=20260830_1"></script>
 </body>
 </html>
