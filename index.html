@@ -2,13 +2,13 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>店舗ポータル - ARENA Okegawa PORTAL</title>
     <!-- Google Fonts の読み込み -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-     <link rel="stylesheet" href="styles.css?v=20260912_1">
+     <link rel="stylesheet" href="styles.css?v=20260912_2">
 </head>
 <body>
     <!-- PC表示時にスマホサイズで中央配置するためのフレームコンテナ -->
@@ -559,22 +559,22 @@
             <!-- --------------------------------------------------
                  1. 伝達事項 編集用モーダル
             -------------------------------------------------- -->
-            <div class="cyber-modal-overlay" id="memo-edit-overlay">
-                <div class="cyber-modal">
+            <div class="cyber-modal-overlay entry-form-overlay" id="memo-edit-overlay">
+                <div class="cyber-modal entry-form-modal" role="dialog" aria-modal="true" aria-labelledby="memo-edit-title">
                     <div class="modal-glow"></div>
                     <div class="modal-header">
                         <span class="modal-icon">📝</span>
-                        <h3>伝達事項の編集</h3>
-                        <button class="modal-close" id="memo-edit-close">&times;</button>
+                        <h3 id="memo-edit-title">伝達事項の編集</h3>
+                        <button class="modal-close" aria-label="閉じる" id="memo-edit-close">&times;</button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body scrollable-form">
                         <div class="cyber-form-group">
                             <label for="input-memo-detail">詳細内容 (伝達詳細)</label>
                             <textarea id="input-memo-detail" class="cyber-textarea" placeholder="伝達事項の本文を入力してください..."></textarea>
                         </div>
                         <div class="cyber-form-group" style="margin-top: 12px;">
-                            <label class="cyber-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--text-primary);">
-                                <input type="checkbox" id="input-memo-pinned" style="width: 16px; height: 16px; accent-color: var(--theme-red);">
+                            <label class="cyber-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary);">
+                                <input type="checkbox" id="input-memo-pinned" style="width: 24px; height: 24px; accent-color: var(--theme-red);">
                                 📌 重要な連絡としてピン留めする
                             </label>
                         </div>
@@ -677,13 +677,13 @@
             <!-- --------------------------------------------------
                  2. お願いごと 新規追加フォーム
             -------------------------------------------------- -->
-            <div class="cyber-modal-overlay" id="request-add-overlay">
-                <div class="cyber-modal">
+            <div class="cyber-modal-overlay entry-form-overlay" id="request-add-overlay">
+                <div class="cyber-modal entry-form-modal" role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
                     <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-cyan), transparent)"></div>
                     <div class="modal-header">
                         <span class="modal-icon">➕</span>
                         <h3 id="request-modal-title">新規お願いごと登録</h3>
-                        <button class="modal-close" id="request-add-close">&times;</button>
+                        <button class="modal-close" aria-label="閉じる" id="request-add-close">&times;</button>
                     </div>
                     <div class="modal-body scrollable-form">
                         <div class="cyber-form-group">
@@ -692,7 +692,7 @@
                         </div>
                         <div class="cyber-form-group">
                             <label for="req-content">お願い内容</label>
-                            <textarea id="req-content" class="cyber-textarea" style="height:80px;" placeholder="依頼する具体的な内容を入力してください..."></textarea>
+                            <textarea id="req-content" class="cyber-textarea" placeholder="依頼する具体的な内容を入力してください..."></textarea>
                         </div>
                         <div class="cyber-form-group">
                             <label for="req-assignee">担当者 (誰へ？)</label>
@@ -713,8 +713,8 @@
             <!-- --------------------------------------------------
                  3. 故障・トラブル 新規追加フォーム
             -------------------------------------------------- -->
-            <div class="cyber-modal-overlay trouble-form-overlay" id="trouble-add-overlay">
-                <div class="cyber-modal trouble-form-modal" role="dialog" aria-modal="true" aria-labelledby="trouble-add-title">
+            <div class="cyber-modal-overlay entry-form-overlay trouble-form-overlay" id="trouble-add-overlay">
+                <div class="cyber-modal entry-form-modal trouble-form-modal" role="dialog" aria-modal="true" aria-labelledby="trouble-add-title">
                     <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-red), transparent)"></div>
                     <div class="modal-header" style="border-bottom-color: rgba(255, 0, 85, 0.15);">
                         <span class="modal-icon">🛠️</span>
@@ -745,8 +745,8 @@
             <!-- --------------------------------------------------
                  4. 故障・トラブル 詳細確認 ＆ 対応履歴編集モーダル 🆕
             -------------------------------------------------- -->
-            <div class="cyber-modal-overlay trouble-form-overlay" id="trouble-edit-overlay">
-                <div class="cyber-modal trouble-form-modal" role="dialog" aria-modal="true" aria-labelledby="trouble-edit-title">
+            <div class="cyber-modal-overlay entry-form-overlay trouble-form-overlay" id="trouble-edit-overlay">
+                <div class="cyber-modal entry-form-modal trouble-form-modal" role="dialog" aria-modal="true" aria-labelledby="trouble-edit-title">
                     <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-red), transparent)"></div>
                     <div class="modal-header" style="border-bottom-color: rgba(255, 0, 85, 0.15);">
                         <span class="modal-icon">🛠️</span>
@@ -905,6 +905,6 @@
         </div>
     </div>
     
-    <script src="app.js?v=20260912_1"></script>
+    <script src="app.js?v=20260912_2"></script>
 </body>
 </html>

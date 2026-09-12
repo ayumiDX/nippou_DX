@@ -3127,12 +3127,12 @@ input[type="number"] {
     100% { box-shadow: 0 0 14px rgba(255, 0, 85, 0.45), inset 0 0 4px rgba(255, 0, 85, 0.2); }
 }
 
-/* 故障報告はフレーム全体を使い、本文のみスクロールする。 */
-.trouble-form-overlay {
+/* 伝達・お願いごと・故障の入力は画面全体を使い、本文のみスクロールする。 */
+.entry-form-overlay {
     padding: 0;
     overflow: hidden;
 }
-.trouble-form-modal {
+.entry-form-modal {
     width: 100%;
     max-width: none;
     height: 100%;
@@ -3142,18 +3142,18 @@ input[type="number"] {
     display: flex;
     flex-direction: column;
 }
-.trouble-form-modal .modal-header,
-.trouble-form-modal .modal-footer {
+.entry-form-modal .modal-header,
+.entry-form-modal .modal-footer {
     flex-shrink: 0;
     padding: 12px 16px;
 }
-.trouble-form-modal .modal-header h3 { font-size: 18px; }
-.trouble-form-modal .modal-close {
+.entry-form-modal .modal-header h3 { font-size: 20px; }
+.entry-form-modal .modal-close {
     min-width: 44px;
     min-height: 44px;
     font-size: 28px;
 }
-.trouble-form-modal .scrollable-form {
+.entry-form-modal .scrollable-form {
     flex: 1;
     min-height: 0;
     max-height: none !important;
@@ -3163,56 +3163,63 @@ input[type="number"] {
     align-items: stretch;
     padding: 16px;
 }
-.trouble-form-modal .scrollable-form > * { flex-shrink: 0; }
-.trouble-form-modal .cyber-form-group label,
-.trouble-form-modal .info-label,
-.trouble-form-modal .info-val,
-.trouble-form-modal .trouble-schedule-header,
-.trouble-form-modal .trouble-schedule-row > label {
+.entry-form-modal .scrollable-form > * { flex-shrink: 0; }
+.entry-form-modal .cyber-form-group label,
+.entry-form-modal .info-label,
+.entry-form-modal .info-val,
+.entry-form-modal .trouble-schedule-header,
+.entry-form-modal .trouble-schedule-row > label {
     font-size: 16px;
 }
-.trouble-form-modal .cyber-input,
-.trouble-form-modal .cyber-select,
-.trouble-form-modal .cyber-textarea {
-    font-size: 16px;
+.entry-form-modal .cyber-input,
+.entry-form-modal .cyber-select,
+.entry-form-modal .cyber-textarea {
+    font-size: 18px;
     line-height: 1.6;
     padding: 10px 12px;
     min-height: 48px;
 }
-.trouble-form-modal .cyber-textarea {
-    height: 180px;
-    min-height: 180px;
+.entry-form-modal .cyber-textarea {
+    height: 220px;
+    min-height: 220px;
     resize: vertical;
 }
-.trouble-form-modal .cyber-btn {
+.entry-form-modal .cyber-btn {
     font-size: 16px;
     min-height: 48px;
     flex: 1;
     padding: 10px 12px;
 }
-.trouble-form-modal .trouble-info-panel { padding: 12px; }
-.trouble-form-modal .info-row { flex-wrap: wrap; gap: 8px; }
-.trouble-form-modal .trouble-schedule-header { flex-wrap: wrap; }
-.trouble-form-modal .trouble-schedule-header small { font-size: 14px; }
-.trouble-form-modal .trouble-schedule-list { gap: 16px; }
-.trouble-form-modal .trouble-schedule-row {
+.entry-form-modal .trouble-info-panel { padding: 12px; }
+.entry-form-modal .info-row { flex-wrap: wrap; gap: 8px; }
+.entry-form-modal .trouble-schedule-header { flex-wrap: wrap; }
+.entry-form-modal .trouble-schedule-header small { font-size: 14px; }
+.entry-form-modal .trouble-schedule-list { gap: 16px; }
+.entry-form-modal .trouble-schedule-row {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
 }
-.trouble-form-modal .trouble-schedule-row > label:first-child { grid-column: 1 / -1; }
-.trouble-form-modal .trouble-schedule-check { min-height: 44px; gap: 8px; }
-.trouble-form-modal .trouble-schedule-check input { width: 24px; height: 24px; }
+.entry-form-modal .trouble-schedule-row > label:first-child { grid-column: 1 / -1; }
+.entry-form-modal .trouble-schedule-check { min-height: 44px; gap: 8px; }
+.entry-form-modal .trouble-schedule-check input { width: 24px; height: 24px; }
 @media screen and (max-width: 600px), screen and (max-height: 600px) and (pointer: coarse) {
-    .trouble-form-overlay {
+    .entry-form-overlay {
         position: fixed;
         inset: 0;
         height: 100vh;
         height: 100dvh;
     }
-    .trouble-form-modal .modal-header {
+    .entry-form-modal .modal-header {
         padding-top: max(12px, env(safe-area-inset-top));
     }
-    .trouble-form-modal .modal-footer {
+    .entry-form-modal .modal-footer {
         padding-bottom: max(12px, env(safe-area-inset-bottom));
     }
 }
+
+
+.entry-form-modal .cyber-checkbox-label { min-height: 48px; line-height: 1.6; }
+.entry-form-modal .cyber-checkbox-label input { flex-shrink: 0; }
+#memo-edit-overlay .modal-body > .cyber-form-group:first-child { flex: 1; display: flex; flex-direction: column; }
+#input-memo-detail { flex: 1; min-height: 280px; }
+.entry-form-modal .modal-footer { gap: 12px; }
