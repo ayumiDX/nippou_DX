@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-     <link rel="stylesheet" href="styles.css?v=20260830_1">
+     <link rel="stylesheet" href="styles.css?v=20260912_1">
 </head>
 <body>
     <!-- PC表示時にスマホサイズで中央配置するためのフレームコンテナ -->
@@ -713,13 +713,13 @@
             <!-- --------------------------------------------------
                  3. 故障・トラブル 新規追加フォーム
             -------------------------------------------------- -->
-            <div class="cyber-modal-overlay" id="trouble-add-overlay">
-                <div class="cyber-modal">
+            <div class="cyber-modal-overlay trouble-form-overlay" id="trouble-add-overlay">
+                <div class="cyber-modal trouble-form-modal" role="dialog" aria-modal="true" aria-labelledby="trouble-add-title">
                     <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-red), transparent)"></div>
                     <div class="modal-header" style="border-bottom-color: rgba(255, 0, 85, 0.15);">
                         <span class="modal-icon">🛠️</span>
-                        <h3>故障報告の新規登録</h3>
-                        <button class="modal-close" id="trouble-add-close">&times;</button>
+                        <h3 id="trouble-add-title">故障報告の新規登録</h3>
+                        <button class="modal-close" id="trouble-add-close" aria-label="閉じる">&times;</button>
                     </div>
                     <div class="modal-body scrollable-form">
                         <div class="cyber-form-group">
@@ -732,7 +732,7 @@
                         </div>
                         <div class="cyber-form-group">
                             <label for="trb-detail">現在の状況 (詳細内容)</label>
-                            <textarea id="trb-detail" class="cyber-textarea" style="height:90px;" placeholder="詳しい症状、施した暫定処置などを入力してください..."></textarea>
+                            <textarea id="trb-detail" class="cyber-textarea" placeholder="詳しい症状、施した暫定処置などを入力してください..."></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -745,32 +745,32 @@
             <!-- --------------------------------------------------
                  4. 故障・トラブル 詳細確認 ＆ 対応履歴編集モーダル 🆕
             -------------------------------------------------- -->
-            <div class="cyber-modal-overlay" id="trouble-edit-overlay">
-                <div class="cyber-modal">
+            <div class="cyber-modal-overlay trouble-form-overlay" id="trouble-edit-overlay">
+                <div class="cyber-modal trouble-form-modal" role="dialog" aria-modal="true" aria-labelledby="trouble-edit-title">
                     <div class="modal-glow" style="background:linear-gradient(90deg, transparent, var(--theme-red), transparent)"></div>
                     <div class="modal-header" style="border-bottom-color: rgba(255, 0, 85, 0.15);">
                         <span class="modal-icon">🛠️</span>
-                        <h3>故障対応・状況更新</h3>
-                        <button class="modal-close" id="trouble-edit-close">&times;</button>
+                        <h3 id="trouble-edit-title">故障対応・状況更新</h3>
+                        <button class="modal-close" id="trouble-edit-close" aria-label="閉じる">&times;</button>
                     </div>
                     <div class="modal-body scrollable-form">
                         <!-- 上半分：登録情報の再編集用フォーム -->
                         <div class="trouble-info-panel" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
                             <div class="cyber-form-group" style="margin-bottom: 0;">
-                                <label for="edit-trb-location" style="font-size: 10px;">場所（台番）</label>
-                                <input type="text" id="edit-trb-location" class="cyber-input" style="padding: 6px 10px; font-size: 11px;">
+                                <label for="edit-trb-location">場所（台番）</label>
+                                <input type="text" id="edit-trb-location" class="cyber-input">
                             </div>
                             <div class="cyber-form-group" style="margin-bottom: 0;">
-                                <label for="edit-trb-title" style="font-size: 10px;">トラブル内容 (要約)</label>
-                                <input type="text" id="edit-trb-title" class="cyber-input" style="padding: 6px 10px; font-size: 11px;">
+                                <label for="edit-trb-title">トラブル内容 (要約)</label>
+                                <input type="text" id="edit-trb-title" class="cyber-input">
                             </div>
                             <div class="cyber-form-group" style="margin-bottom: 0;">
-                                <label for="edit-trb-detail" style="font-size: 10px;">現在の状況 (詳細内容)</label>
-                                <textarea id="edit-trb-detail" class="cyber-textarea" style="height:70px; padding: 6px 10px; font-size: 11px;"></textarea>
+                                <label for="edit-trb-detail">現在の状況 (詳細内容)</label>
+                                <textarea id="edit-trb-detail" class="cyber-textarea"></textarea>
                             </div>
                             <div class="info-row" style="margin-bottom: 0;">
-                                <span class="info-label" style="font-size: 10px;">発生日時</span>
-                                <span class="info-val" id="view-trb-time" style="font-size: 10px;">--</span>
+                                <span class="info-label">発生日時</span>
+                                <span class="info-val" id="view-trb-time">--</span>
                             </div>
                         </div>
                         
@@ -820,7 +820,7 @@
                         </div>
                         <div class="cyber-form-group">
                             <label for="edit-trb-history">対応履歴（追記・編集）</label>
-                            <textarea id="edit-trb-history" class="cyber-textarea" style="height:70px;" placeholder="対応内容や今後の対応予定などを追記・変更してください..."></textarea>
+                            <textarea id="edit-trb-history" class="cyber-textarea" placeholder="対応内容や今後の対応予定などを追記・変更してください..."></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -905,6 +905,6 @@
         </div>
     </div>
     
-    <script src="app.js?v=20260830_1"></script>
+    <script src="app.js?v=20260912_1"></script>
 </body>
 </html>
