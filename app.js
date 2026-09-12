@@ -467,17 +467,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     initLocalStorage();
 
-    // 登録日を含めた直近n日間かを日付単位で判定する。
-    function isWithinLastCalendarDays(dateValue, days) {
-        if (!dateValue) return false;
-        const normalized = String(dateValue).replace(/\//g, '-').replace(' ', 'T');
-        const recordDate = new Date(normalized);
-        if (Number.isNaN(recordDate.getTime())) return false;
+    // タイムゾーンなしの既存日時は日本時間として扱い、ISO日時はオフセットを保持する。
+    function parseMemoDate(dateValue) {
+        if (!dateValue) return new Date(NaN);
+        if (dateValue instanceof Date) return dateValue;
+        const text = String(dateValue).trim();
+        const local = text.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+        if (!local) return new Date(text);
+        const [, year, month, day, hour = '0', minute = '00', second = '00'] = local;
+        return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute}:${second}+09:00`);
+    }
 
-        const threshold = new Date();
-        threshold.setHours(0, 0, 0, 0);
-        threshold.setDate(threshold.getDate() - (days - 1));
-        return recordDate >= threshold;
+    function isWithinRetentionHours(dateValue, hours, now = Date.now()) {
+        const age = now - parseMemoDate(dateValue).getTime();
+        return age >= 0 && age < hours * 60 * 60 * 1000;
+    }
+
+    function renderMemoList(list) {
+        const now = Date.now();
+        const pinned = [];
+        const normal = [];
+        let latest = null;
+        // 通常は24時間、重要は168時間。表示期限内の伝達は件数で切り捨てない。
+        const sorted = [...list].sort((a, b) =>
+            parseMemoDate(b['登録日時'] || b['日時'] || b.timestamp) -
+            parseMemoDate(a['登録日時'] || a['日時'] || a.timestamp));
+        for (const item of sorted) {
+            const timestamp = item['登録日時'] || item['日時'] || item.timestamp;
+            const content = String(item['内容'] || item.content || '').trim();
+            const category = String(item['区分'] || item['重要度'] || item.category || '');
+            const important = category.includes('重要');
+            if (!content || !isWithinRetentionHours(timestamp, important ? 168 : 24, now)) continue;
+            (important ? pinned : normal).push(content);
+            if (!latest) latest = parseMemoDate(timestamp);
+        }
+        if (memoTitleDisplay) memoTitleDisplay.textContent = '伝達事項';
+        if (memoPinnedTextarea) memoPinnedTextarea.value = pinned.join('\n\n') || '現在、重要なピン留め連絡はありません。';
+        if (memoTextarea) memoTextarea.value = normal.join('\n\n') || '現在、通常の伝達事項はありません。';
+        if (memoTime) memoTime.textContent = `最終更新: ${latest ? latest.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '----/--/-- --:--'}`;
     }
 
     function fitMemoDetailText(element) {
@@ -561,22 +588,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (GAS_API_URL) {
             try {
                 console.log('GAS APIデータ取得開始 URL:', GAS_API_URL);
-                const response = await fetch(buildAuthenticatedGasUrl({ action: 'getHome' }));
-                if (!response.ok) throw new Error('通信エラー');
-                const data = await response.json();
+                // 既存の履歴APIから登録日時を取得し、旧GASの日付単位フィルターを使わない。
+                const [response, memoResponse] = await Promise.all([
+                    fetch(buildAuthenticatedGasUrl({ action: 'getHome' })),
+                    fetch(buildAuthenticatedGasUrl({ sheetName: '伝達事項' }))
+                ]);
+                if (!response.ok || !memoResponse.ok) throw new Error('通信エラー');
+                const [data, memoList] = await Promise.all([response.json(), memoResponse.json()]);
+                if (!Array.isArray(memoList)) throw new Error('伝達事項を取得できませんでした。');
+                renderMemoList(memoList);
                 console.log('GAS APIデータ取得成功 レスポンス:', data);
                 
                 if (data && data.length > 0) {
                     const homeData = data[0];
-                    const detail = homeData.detail || '';
-                    const pinnedDetail = homeData.pinnedDetail || '';
-                    const timestamp = homeData.timestamp || '----/--/-- --:--';
-                    
-                    if (memoTitleDisplay) memoTitleDisplay.textContent = '伝達事項'; // タイトルは『伝達事項』で固定
-                    if (memoPinnedTextarea) memoPinnedTextarea.value = pinnedDetail;
-                    if (memoTextarea) memoTextarea.value = detail;
-                    if (memoTime) memoTime.textContent = `最終更新: ${timestamp}`;
-
                     // 本番GASから取得した会員データで進捗メーターを同時に更新！（CORSエラーを完全に回避）
                     const targetVal = Number(homeData['月間会員目標数']) || Number(homeData.targetMembers) || 100;
                     const currentVal = Number(homeData['現在の会員数']) || Number(homeData.currentMembers) || 0;
@@ -653,41 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (dataStr) {
                 const list = JSON.parse(dataStr);
-                let pinnedDetailList = [];
-                let detailList = [];
-                let lastTimestamp = '';
-                
-                // 最新レコード（後ろ）からループしてデータを仕分ける（日本語キー・英語キー両対応）
-                for (let i = list.length - 1; i >= 0; i--) {
-                    const item = list[i];
-                    const regTime = item['登録日時'] || item['日時'] || item.timestamp;
-                    const content = (item['内容'] || item.content || '').trim();
-                    const category = (item['区分'] || item['重要度'] || item.category || '').trim();
-                    
-                    // LINEからの「📌 重要」も、アプリからの「重要」も拾う設定
-                    const isImportant = category.includes('重要');
-                    
-                    if (isImportant && content && isWithinLastCalendarDays(regTime, 7)) {
-                        pinnedDetailList.push(content);
-                        if (!lastTimestamp && regTime) {
-                            lastTimestamp = regTime;
-                        }
-                    }
-                    
-                    if (!isImportant && content) {
-                        if (detailList.length < 5) { // 最新5件までリスト表示
-                            detailList.push(content);
-                        }
-                        if (!lastTimestamp && regTime) {
-                            lastTimestamp = regTime;
-                        }
-                    }
-                }
-                
-                if (memoTitleDisplay) memoTitleDisplay.textContent = '伝達事項'; // タイトルは『伝達事項』で固定
-                if (memoPinnedTextarea) memoPinnedTextarea.value = pinnedDetailList.length > 0 ? pinnedDetailList.join('\n\n') : '現在、重要なピン留め連絡はありません。';
-                if (memoTextarea) memoTextarea.value = detailList.length > 0 ? detailList.join('\n\n') : '【通常の伝達事項】\n現在、通常の伝達事項はありません。';
-                if (memoTime) memoTime.textContent = `最終更新: ${lastTimestamp || '----/--/-- --:--'}`;
+                renderMemoList(list);
             } else {
                 if (memoPinnedTextarea) memoPinnedTextarea.value = '【重要なお知らせ】\n現在、重要なピン留め連絡はありません。';
                 if (memoTextarea) memoTextarea.value = '【通常の伝達事項】\n現在、通常の伝達事項はありません。';

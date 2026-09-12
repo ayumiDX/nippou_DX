@@ -48,16 +48,21 @@ function jsonResponse(value) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function isWithinLastCalendarDays(dateValue, days) {
-  if (!dateValue) return false;
-  const recordDate = new Date(dateValue);
-  if (isNaN(recordDate.getTime())) return false;
-
-  const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
-  const threshold = new Date(today + 'T00:00:00+09:00');
-  threshold.setDate(threshold.getDate() - (days - 1));
-  return recordDate >= threshold;
+function parseMemoDate(dateValue) {
+    if (!dateValue) return new Date(NaN);
+    if (dateValue instanceof Date) return dateValue;
+    const text = String(dateValue).trim();
+    const local = text.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (!local) return new Date(text);
+    const [, year, month, day, hour = '0', minute = '00', second = '00'] = local;
+    return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute}:${second}+09:00`);
 }
+
+function isWithinRetentionHours(dateValue, hours, now = Date.now()) {
+    const age = now - parseMemoDate(dateValue).getTime();
+    return age >= 0 && age < hours * 60 * 60 * 1000;
+}
+
 
 function ensureTroubleScheduleColumns(sheet) {
   const lastColumn = Math.max(sheet.getLastColumn(), 7);
@@ -179,16 +184,16 @@ function doGet(e) {
           if (!regTime || !content) continue;
 
           const isImportant = category.includes('重要');
-          if (isImportant && isWithinLastCalendarDays(regTime, IMPORTANT_RETENTION_DAYS)) {
+          if (isImportant && isWithinRetentionHours(regTime, IMPORTANT_RETENTION_DAYS * 24)) {
             pinnedDetailList.push(content);
             if (!lastTimestamp) {
-              lastTimestamp = Utilities.formatDate(new Date(regTime), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+              lastTimestamp = Utilities.formatDate(parseMemoDate(regTime), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
             }
           }
-          if (!isImportant && detailList.length < 5 && isWithinLastCalendarDays(regTime, 1)) {
+          if (!isImportant && isWithinRetentionHours(regTime, 24)) {
             detailList.push(content);
             if (!lastTimestamp && pinnedDetailList.length === 0) {
-              lastTimestamp = Utilities.formatDate(new Date(regTime), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+              lastTimestamp = Utilities.formatDate(parseMemoDate(regTime), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
             }
           }
         }
