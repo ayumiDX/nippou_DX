@@ -3174,7 +3174,7 @@ input[type="number"] {
 .entry-form-modal .cyber-input,
 .entry-form-modal .cyber-select,
 .entry-form-modal .cyber-textarea {
-    font-size: 18px;
+    font-size: 16px;
     line-height: 1.6;
     padding: 10px 12px;
     min-height: 48px;

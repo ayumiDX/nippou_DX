@@ -61,7 +61,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
                 const rect = modal.getBoundingClientRect();
                 return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, font: getComputedStyle(field).fontSize, textarea: field.clientHeight, body: body.clientHeight, scroll: body.scrollHeight, overflow: body.scrollWidth > body.clientWidth, footerBottom: footer.getBoundingClientRect().bottom };
             });
-            assert.equal(geometry.font, '18px');
+            assert.equal(geometry.font, '16px');
             assert.ok(geometry.textarea >= 170);
             assert.equal(geometry.overflow, false);
             if (width !== 1280) {
@@ -96,13 +96,13 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
                 await page.waitForTimeout(400);
                 const box = await page.locator('#' + overlayId).boundingBox();
                 if (width !== 1280) { assert.equal(Math.round(box.width), width); assert.equal(Math.round(box.height), height); }
-                assert.equal(await page.locator('#' + fieldId).evaluate(el => getComputedStyle(el).fontSize), '18px');
+                assert.equal(await page.locator('#' + fieldId).evaluate(el => getComputedStyle(el).fontSize), '16px');
                 await page.locator('#' + fieldId).fill('入力欄の大きさを確認できます。\n長い文章も読みやすく入力できます。');
                 if (width === 390) await page.screenshot({ path: 'artifacts/' + imageName + '.png' });
                 await page.locator('#' + overlayId + ' .modal-close').click();
             }
             assert.deepEqual(errors, []);
-            console.log(`${width}x${height}: modal geometry, scrolling, 18px text, edit/save, new report, request/memo inputs, and legacy API compatibility passed.`);
+            console.log(`${width}x${height}: modal geometry, scrolling, 16px text, edit/save, new report, request/memo inputs, and legacy API compatibility passed.`);
             await context.close();
         }
     } finally {
