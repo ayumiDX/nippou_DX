@@ -31,6 +31,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // タブ内・同じログイン中だけ使う表示用キャッシュ。必ず裏で最新情報を取得する。
+    const HOME_PREVIEW_KEY = 'arena_home_preview_v1';
+    function readHomePreview() {
+        try {
+            const cached = JSON.parse(sessionStorage.getItem(HOME_PREVIEW_KEY));
+            const age = Date.now() - cached.savedAt;
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' });
+            if (cached.session !== sessionStorage.getItem('arena_unlocked_at') ||
+                cached.api !== GAS_API_URL || cached.day !== today ||
+                !Number.isFinite(age) || age < 0 || age > 15 * 60 * 1000 ||
+                !Array.isArray(cached.home) || !cached.home[0] || !Array.isArray(cached.memos)) return null;
+            return cached;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function saveHomePreview(home, memos) {
+        try {
+            sessionStorage.setItem(HOME_PREVIEW_KEY, JSON.stringify({
+                session: sessionStorage.getItem('arena_unlocked_at'), api: GAS_API_URL,
+                savedAt: Date.now(), day: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' }),
+                home, memos
+            }));
+        } catch (_) { /* 容量不足・保存禁止でも通信と表示は続ける。 */ }
+    }
+
     // 編集ステートの管理用変数 🆕
     let currentEditingRequestId = null;
     let currentEditingMemoId = null;
@@ -71,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.removeItem('arena_unlocked_at');
             sessionStorage.removeItem('arena_user_name');
             sessionStorage.removeItem('arena_passcode');
+            sessionStorage.removeItem(HOME_PREVIEW_KEY);
             
             // 解除されていない場合はログインID入力欄に自動フォーカス
             setTimeout(() => {
@@ -154,7 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (welcomeUserText) welcomeUserText.textContent = `${userName}さん、お疲れ様です`;
             if (loginSuccessPopup) loginSuccessPopup.classList.add('active');
 
-            // 遷移後に一度だけ取得する。ここで開始するとリロード時に重複する。
+            // 歓迎表示中から取得を始め、ページを再読み込みせずホームを開く。
+            loadMemoData();
 
             if (lockScreenError) {
                 lockScreenError.textContent = '';
@@ -165,15 +194,12 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 if (lockScreen) {
                     lockScreen.classList.add('lock-screen-fadeout');
-                    // フェードアウトアニメーション（0.4s）完了後に強制リダイレクト（実質リロード）を実行
-                    // スマホ（特にSafari）の厳しいセキュリティ仕様では、非同期での単なるDOM操作ではパスワード保存が走りません。
-                    // ログイン成功後にページが「画面遷移（リロード）」することで、ブラウザが完璧にログイン完了を認識し、
-                    // スマホであっても「パスワードを保存しますか？」のプロンプトを確実に100%トリガーさせます。
                     setTimeout(() => {
-                        window.location.replace(window.location.pathname + '?login=success');
+                        lockScreen.remove();
                     }, 400);
                 }
             }, 1500);
+            return; // ロック解除までログインの二重送信を防ぐ。
         } else {
             // ログイン失敗処理（ネオンレッドエラー ＆ 振動）
             showLoginError(errorMsg);
@@ -233,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.removeItem('arena_unlocked_at');
             sessionStorage.removeItem('arena_user_name');
             sessionStorage.removeItem('arena_passcode');
+            sessionStorage.removeItem(HOME_PREVIEW_KEY);
             location.reload(); // リロードしてログイン画面を強制表示
         });
     }
@@ -593,12 +620,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function renderHomeData(data) {
+        if (data && data.length > 0) {
+            const homeData = data[0];
+            // 本番GASから取得した会員データで進捗メーターを同時に更新！（CORSエラーを完全に回避）
+            const targetVal = Number(homeData['月間会員目標数']) || Number(homeData.targetMembers) || 100;
+            const currentVal = Number(homeData['現在の会員数']) || Number(homeData.currentMembers) || 0;
+            updateProgressUI(currentVal, targetVal);
+
+            // 🌟【抽選・飛び込み人数データの表示】
+            // data[0].lotteryCount と data[0].walkInCount を確実に取得してパースする
+            let lottery = 0;
+            let walkIn = 0;
+
+            if (homeData.lotteryCount !== undefined && homeData.lotteryCount !== null) {
+                lottery = parseInt(homeData.lotteryCount, 10);
+                if (isNaN(lottery)) lottery = 0;
+            }
+            if (homeData.walkInCount !== undefined && homeData.walkInCount !== null) {
+                walkIn = parseInt(homeData.walkInCount, 10);
+                if (isNaN(walkIn)) walkIn = 0;
+            }
+        
+            console.log('パースされた人数 - 抽選:', lottery, '飛び込み:', walkIn);
+        
+            if (document.getElementById('lottery-count-display')) {
+                document.getElementById('lottery-count-display').textContent = lottery;
+            }
+            if (document.getElementById('walk-in-count-display')) {
+                document.getElementById('walk-in-count-display').textContent = walkIn;
+            }
+
+            // ローカルストレージにも同期保存してキャッシュを最新化
+            saveTrafficLocal(lottery, walkIn);
+
+            // GASから動的スタッフ名リストが返ってきていればグローバルに保持
+            if (homeData.staffList && Array.isArray(homeData.staffList)) {
+                window.globalStaffList = homeData.staffList;
+                console.log('スプレッドシートから動的スタッフリストを読込:', window.globalStaffList);
+            }
+        }
+    }
+
     // 伝達事項のデータ取得
-    async function loadMemoData() {
+    async function loadMemoData(showPreview = false) {
+        const preview = showPreview ? readHomePreview() : null;
+        if (preview) {
+            renderHomeData(preview.home);
+            renderMemoList(preview.memos);
+        }
         // 通知はホームの取得完了を待たずに取得する。
         checkAndDisplayNewAlerts();
         if (memoSaveStatus) {
-            memoSaveStatus.textContent = GAS_API_URL ? 'スプレッドシートと同期中...' : 'ローカルデータベース稼働中';
+            memoSaveStatus.textContent = preview
+                ? `前回取得（${new Date(preview.savedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}）の情報を表示中・最新情報を確認中...`
+                : GAS_API_URL ? 'スプレッドシートと同期中...' : 'ローカルデータベース稼働中';
             memoSaveStatus.style.color = GAS_API_URL ? 'var(--neon-blue)' : 'var(--theme-emerald)';
         }
 
@@ -611,54 +687,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     .then(memoList => {
                         if (!Array.isArray(memoList)) throw new Error('伝達事項を取得できませんでした。');
                         renderMemoList(memoList);
+                        return memoList;
                     });
                 const homeTask = fetchStartupJson(buildAuthenticatedGasUrl({ action: 'getHome' })).then(data => {
                     if (!Array.isArray(data) || !data.length) throw new Error('人数を取得できませんでした。');
                 
-                    if (data && data.length > 0) {
-                        const homeData = data[0];
-                        // 本番GASから取得した会員データで進捗メーターを同時に更新！（CORSエラーを完全に回避）
-                        const targetVal = Number(homeData['月間会員目標数']) || Number(homeData.targetMembers) || 100;
-                        const currentVal = Number(homeData['現在の会員数']) || Number(homeData.currentMembers) || 0;
-                        updateProgressUI(currentVal, targetVal);
-
-                        // 🌟【抽選・飛び込み人数データの表示】
-                        // data[0].lotteryCount と data[0].walkInCount を確実に取得してパースする
-                        let lottery = 0;
-                        let walkIn = 0;
-
-                        if (homeData.lotteryCount !== undefined && homeData.lotteryCount !== null) {
-                            lottery = parseInt(homeData.lotteryCount, 10);
-                            if (isNaN(lottery)) lottery = 0;
-                        }
-                        if (homeData.walkInCount !== undefined && homeData.walkInCount !== null) {
-                            walkIn = parseInt(homeData.walkInCount, 10);
-                            if (isNaN(walkIn)) walkIn = 0;
-                        }
-                    
-                        console.log('パースされた人数 - 抽選:', lottery, '飛び込み:', walkIn);
-                    
-                        if (document.getElementById('lottery-count-display')) {
-                            document.getElementById('lottery-count-display').textContent = lottery;
-                        }
-                        if (document.getElementById('walk-in-count-display')) {
-                            document.getElementById('walk-in-count-display').textContent = walkIn;
-                        }
-
-                        // ローカルストレージにも同期保存してキャッシュを最新化
-                        saveTrafficLocal(lottery, walkIn);
-
-                        // GASから動的スタッフ名リストが返ってきていればグローバルに保持
-                        if (homeData.staffList && Array.isArray(homeData.staffList)) {
-                            window.globalStaffList = homeData.staffList;
-                            console.log('スプレッドシートから動的スタッフリストを読込:', window.globalStaffList);
-                        }
-                    }
+                    renderHomeData(data);
+                    return data;
                 });
                 const results = await Promise.allSettled([memoTask, homeTask]);
                 if (results.some(result => result.status === 'rejected')) {
                     throw new Error('一部のデータを取得できませんでした。');
                 }
+                saveHomePreview(results[1].value, results[0].value);
                 if (memoSaveStatus) {
                     memoSaveStatus.textContent = 'スプレッドシート同期済';
                     memoSaveStatus.style.color = 'var(--theme-emerald)';
@@ -667,7 +708,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('ホームのデータ取得に失敗しました。', e);
                 // 成功した表示をローカルの初期値で上書きしない。
                 if (memoSaveStatus) {
-                    memoSaveStatus.textContent = '一部の情報を更新できませんでした。ページを再読み込みしてください。';
+                    memoSaveStatus.textContent = preview
+                        ? '一部の情報を更新できませんでした。前回取得の情報を含みます。再読み込みしてください。'
+                        : '一部の情報を更新できませんでした。ページを再読み込みしてください。';
                     memoSaveStatus.style.color = 'var(--theme-red)';
                 }
             }
@@ -876,7 +919,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 未認証時は通信しない。初期化完了後に開始する。
     if (sessionStorage.getItem('arena_is_unlocked') === 'true') {
-        queueMicrotask(() => loadMemoData());
+        queueMicrotask(() => loadMemoData(true));
     }
 
     // ==========================================
