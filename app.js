@@ -2963,9 +2963,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 case '拾得台帳':
                     icon = '🎒';
-                    targetUrl = 'https://matatabisan5656-maker.github.io/hirotokubutsu-app/';
+                    targetUrl = 'https://dxokegawa-wq.github.io/hirotokubutsu-app/';
                     content = `<strong>【落とし物・拾得物管理システム】</strong><br><br>
                                外部の拾得台帳アプリケーションへ接続します。<br>
+                               初回は、拾得台帳の初期設定画面に以下のURLをコピーして入力してください。<br>
+                               <label for="lost-property-setup-url">初期設定用URL（タップで全選択）</label>
+                               <textarea id="lost-property-setup-url" readonly rows="4" onclick="this.select()" style="display:block; width:100%; box-sizing:border-box; margin:8px 0 16px; padding:10px; font-size:14px; overflow-wrap:anywhere;">https://script.google.com/macros/s/AKfycbxv2wtZ1k0oOsxqNI_7b71JwZDCJBDZx-F9TZ25CJPU5v2y40HgZWo1JQuRdNoylqIa/exec</textarea>
                                安全な外部ブラウザ（新しいタブ）でリンクを起動しています...<br><br>
                                自動で切り替わらない場合、またはポップアップがブロックされた場合は、以下のボタンを直接タップしてください。<br><br>
                                <a href="${targetUrl}" target="_blank" class="cyber-btn" style="display:inline-block; text-decoration:none; text-align:center; width:100%; box-shadow:0 0 10px rgba(0, 240, 255, 0.3)">👉 拾得物アプリを開く</a>`;
