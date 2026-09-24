@@ -16,6 +16,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return url.toString();
     }
 
+    // 読み取り・認証は応答本文も含めて待ち時間を制限する。
+    // 保存処理には適用しない（送信結果が不明なまま再送することを防ぐ）。
+    async function fetchStartupJson(url, options = {}, timeoutMs = 20000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            if (!response.ok) throw new Error('通信エラー');
+            const data = await response.json();
+            return data;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
     // 編集ステートの管理用変数 🆕
     let currentEditingRequestId = null;
     let currentEditingMemoId = null;
@@ -94,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (GAS_API_URL) {
             try {
                 // GASのdoPostに対してログイン情報をPOST送信
-                const response = await fetch(GAS_API_URL, {
+                const resData = await fetchStartupJson(GAS_API_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
@@ -106,8 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     })
                 });
 
-                if (response.ok) {
-                    const resData = await response.json();
+                if (resData) {
                     if (resData && resData.success) {
                         success = true;
                         userName = resData.userName || loginId;
@@ -121,7 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (e) {
                 console.error('GASログインAPI通信失敗。', e);
-                errorMsg = '認証サーバーに接続できません。通信環境をご確認ください。';
+                errorMsg = e.name === 'AbortError'
+                    ? '認証に時間が掛かっています。もう一度ログインしてください。'
+                    : '認証サーバーに接続できません。通信環境をご確認ください。';
             }
         } else {
             errorMsg = '認証サーバーが設定されていません。管理者へご連絡ください。';
@@ -138,8 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (welcomeUserText) welcomeUserText.textContent = `${userName}さん、お疲れ様です`;
             if (loginSuccessPopup) loginSuccessPopup.classList.add('active');
 
-            // ログイン成功の瞬間にスプレッドシートから最新データを再ロード 🆕
-            loadMemoData();
+            // 遷移後に一度だけ取得する。ここで開始するとリロード時に重複する。
 
             if (lockScreenError) {
                 lockScreenError.textContent = '';
@@ -580,6 +595,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 伝達事項のデータ取得
     async function loadMemoData() {
+        // 通知はホームの取得完了を待たずに取得する。
+        checkAndDisplayNewAlerts();
         if (memoSaveStatus) {
             memoSaveStatus.textContent = GAS_API_URL ? 'スプレッドシートと同期中...' : 'ローカルデータベース稼働中';
             memoSaveStatus.style.color = GAS_API_URL ? 'var(--neon-blue)' : 'var(--theme-emerald)';
@@ -589,65 +606,75 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('GAS APIデータ取得開始 URL:', GAS_API_URL);
                 // 既存の履歴APIから登録日時を取得し、旧GASの日付単位フィルターを使わない。
-                const [response, memoResponse] = await Promise.all([
-                    fetch(buildAuthenticatedGasUrl({ action: 'getHome' })),
-                    fetch(buildAuthenticatedGasUrl({ sheetName: '伝達事項' }))
-                ]);
-                if (!response.ok || !memoResponse.ok) throw new Error('通信エラー');
-                const [data, memoList] = await Promise.all([response.json(), memoResponse.json()]);
-                if (!Array.isArray(memoList)) throw new Error('伝達事項を取得できませんでした。');
-                renderMemoList(memoList);
-                console.log('GAS APIデータ取得成功 レスポンス:', data);
+                // 伝達事項と人数は届いた順に表示し、遅い方を待たない。
+                const memoTask = fetchStartupJson(buildAuthenticatedGasUrl({ sheetName: '伝達事項' }))
+                    .then(memoList => {
+                        if (!Array.isArray(memoList)) throw new Error('伝達事項を取得できませんでした。');
+                        renderMemoList(memoList);
+                    });
+                const homeTask = fetchStartupJson(buildAuthenticatedGasUrl({ action: 'getHome' })).then(data => {
+                    if (!Array.isArray(data) || !data.length) throw new Error('人数を取得できませんでした。');
                 
-                if (data && data.length > 0) {
-                    const homeData = data[0];
-                    // 本番GASから取得した会員データで進捗メーターを同時に更新！（CORSエラーを完全に回避）
-                    const targetVal = Number(homeData['月間会員目標数']) || Number(homeData.targetMembers) || 100;
-                    const currentVal = Number(homeData['現在の会員数']) || Number(homeData.currentMembers) || 0;
-                    updateProgressUI(currentVal, targetVal);
+                    if (data && data.length > 0) {
+                        const homeData = data[0];
+                        // 本番GASから取得した会員データで進捗メーターを同時に更新！（CORSエラーを完全に回避）
+                        const targetVal = Number(homeData['月間会員目標数']) || Number(homeData.targetMembers) || 100;
+                        const currentVal = Number(homeData['現在の会員数']) || Number(homeData.currentMembers) || 0;
+                        updateProgressUI(currentVal, targetVal);
 
-                    // 🌟【抽選・飛び込み人数データの表示】
-                    // data[0].lotteryCount と data[0].walkInCount を確実に取得してパースする
-                    let lottery = 0;
-                    let walkIn = 0;
+                        // 🌟【抽選・飛び込み人数データの表示】
+                        // data[0].lotteryCount と data[0].walkInCount を確実に取得してパースする
+                        let lottery = 0;
+                        let walkIn = 0;
 
-                    if (homeData.lotteryCount !== undefined && homeData.lotteryCount !== null) {
-                        lottery = parseInt(homeData.lotteryCount, 10);
-                        if (isNaN(lottery)) lottery = 0;
-                    }
-                    if (homeData.walkInCount !== undefined && homeData.walkInCount !== null) {
-                        walkIn = parseInt(homeData.walkInCount, 10);
-                        if (isNaN(walkIn)) walkIn = 0;
-                    }
+                        if (homeData.lotteryCount !== undefined && homeData.lotteryCount !== null) {
+                            lottery = parseInt(homeData.lotteryCount, 10);
+                            if (isNaN(lottery)) lottery = 0;
+                        }
+                        if (homeData.walkInCount !== undefined && homeData.walkInCount !== null) {
+                            walkIn = parseInt(homeData.walkInCount, 10);
+                            if (isNaN(walkIn)) walkIn = 0;
+                        }
                     
-                    console.log('パースされた人数 - 抽選:', lottery, '飛び込み:', walkIn);
+                        console.log('パースされた人数 - 抽選:', lottery, '飛び込み:', walkIn);
                     
-                    if (document.getElementById('lottery-count-display')) {
-                        document.getElementById('lottery-count-display').textContent = lottery;
-                    }
-                    if (document.getElementById('walk-in-count-display')) {
-                        document.getElementById('walk-in-count-display').textContent = walkIn;
-                    }
+                        if (document.getElementById('lottery-count-display')) {
+                            document.getElementById('lottery-count-display').textContent = lottery;
+                        }
+                        if (document.getElementById('walk-in-count-display')) {
+                            document.getElementById('walk-in-count-display').textContent = walkIn;
+                        }
 
-                    // ローカルストレージにも同期保存してキャッシュを最新化
-                    saveTrafficLocal(lottery, walkIn);
+                        // ローカルストレージにも同期保存してキャッシュを最新化
+                        saveTrafficLocal(lottery, walkIn);
 
-                    // GASから動的スタッフ名リストが返ってきていればグローバルに保持
-                    if (homeData.staffList && Array.isArray(homeData.staffList)) {
-                        window.globalStaffList = homeData.staffList;
-                        console.log('スプレッドシートから動的スタッフリストを読込:', window.globalStaffList);
+                        // GASから動的スタッフ名リストが返ってきていればグローバルに保持
+                        if (homeData.staffList && Array.isArray(homeData.staffList)) {
+                            window.globalStaffList = homeData.staffList;
+                            console.log('スプレッドシートから動的スタッフリストを読込:', window.globalStaffList);
+                        }
                     }
+                });
+                const results = await Promise.allSettled([memoTask, homeTask]);
+                if (results.some(result => result.status === 'rejected')) {
+                    throw new Error('一部のデータを取得できませんでした。');
+                }
+                if (memoSaveStatus) {
+                    memoSaveStatus.textContent = 'スプレッドシート同期済';
+                    memoSaveStatus.style.color = 'var(--theme-emerald)';
                 }
             } catch (e) {
-                console.error('伝達事項のスプレッドシート取得に失敗しました。ローカルストレージを使用します。', e);
-                loadMemoLocal();
+                console.error('ホームのデータ取得に失敗しました。', e);
+                // 成功した表示をローカルの初期値で上書きしない。
+                if (memoSaveStatus) {
+                    memoSaveStatus.textContent = '一部の情報を更新できませんでした。ページを再読み込みしてください。';
+                    memoSaveStatus.style.color = 'var(--theme-red)';
+                }
             }
         } else {
             loadMemoLocal();
         }
         
-        // 🆕 新規追加お知らせバナーの更新
-        checkAndDisplayNewAlerts();
     }
 
     function loadMemoLocal() {
@@ -801,8 +828,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadMemoLocal();
             }
             
-            if (memoSaveStatus) {
-                memoSaveStatus.textContent = GAS_API_URL ? 'スプレッドシート同期済' : 'ローカルに保存されました';
+            if (memoSaveStatus && !GAS_API_URL) {
+                memoSaveStatus.textContent = 'ローカルに保存されました';
                 memoSaveStatus.style.color = 'var(--theme-emerald)';
             }
 
@@ -847,7 +874,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    loadMemoData();
+    // 未認証時は通信しない。初期化完了後に開始する。
+    if (sessionStorage.getItem('arena_is_unlocked') === 'true') {
+        queueMicrotask(() => loadMemoData());
+    }
 
     // ==========================================
     // 3.1. セル・カセット清掃画面（スライドインSPAサブビュー） 🆕
@@ -3693,32 +3723,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!reqBtn || !trbBtn || !reqAlert || !trbAlert) return;
 
-        let troubles = [];
-        let requests = [];
-
-        // 1. 故障トラブルの取得
-        if (GAS_API_URL) {
+        const readAlerts = async (action, loadLocal) => {
+            if (!GAS_API_URL) return loadLocal();
             try {
-                const response = await fetch(buildAuthenticatedGasUrl({ action: 'getTroubles' }));
-                if (response.ok) troubles = await response.json();
+                const data = await fetchStartupJson(buildAuthenticatedGasUrl({ action }));
+                return Array.isArray(data) ? data : [];
             } catch (e) {
-                troubles = loadTroublesLocal();
+                return [];
             }
-        } else {
-            troubles = loadTroublesLocal();
-        }
-
-        // 2. お願いごとの取得
-        if (GAS_API_URL) {
-            try {
-                const response = await fetch(buildAuthenticatedGasUrl({ action: 'getRequests' }));
-                if (response.ok) requests = await response.json();
-            } catch (e) {
-                requests = loadRequestsLocal();
-            }
-        } else {
-            requests = loadRequestsLocal();
-        }
+        };
+        const [troubles, requests] = await Promise.all([
+            readAlerts('getTroubles', loadTroublesLocal),
+            readAlerts('getRequests', loadRequestsLocal)
+        ]);
 
         const now = new Date();
         const limitMs = 24 * 60 * 60 * 1000; // 24時間以内
