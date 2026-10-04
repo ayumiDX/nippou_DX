@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // ⚠️ Googleスプレッドシートの拡張機能「Apps Script」でWebアプリとしてデプロイしたURLをここに貼り付けます。
     // 空欄の場合は、自動的でブラウザの「ローカルストレージ（localStorage）」を使用した100%完動する模擬（モック）システムとして動作します。
-    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyf_RhLhMv1C0M4OsZ_AatkRHlLjayJQzRtxuBtYCMEb425Yj_4N1LYFt1p1t0PtG8p/exec'; 
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyQaDWFjRk7c-XASZWAucjb3oGbQDKvtHze9JlucFbETIN33cin37n-l8ys7zVub4Gc/exec'; 
 
     function buildAuthenticatedGasUrl(params) {
         const url = new URL(GAS_API_URL);
@@ -785,6 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function closeMemoModal() {
+        if (memoEditSave && memoEditSave.disabled) return;
         if (memoEditOverlay) memoEditOverlay.classList.remove('active');
     }
 
@@ -794,6 +795,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 伝達事項の保存・更新処理
     if (memoEditSave) {
         memoEditSave.addEventListener('click', async () => {
+            if (memoEditSave.disabled) return;
             const detail = inputMemoDetail.value.trim();
             const isPinned = inputMemoPinned ? inputMemoPinned.checked : false;
             const category = isPinned ? '重要' : '通常';
@@ -834,8 +836,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     if (response.ok) {
                         const result = await response.json();
-                        if (result.status === 'error' || result.success === false) {
-                            alert(`認証エラー: ${result.message || result.error || 'アクセス権限がありません。'}`);
+                        if (!result || result.success !== true || result.status === 'error' || result.error) {
+                            alert(`保存できませんでした: ${(result && (result.message || result.error)) || 'サーバーから保存完了を確認できませんでした。'}\n入力内容は残しています。`);
                             memoEditSave.textContent = isEdit ? '更新する' : '保存する';
                             memoEditSave.disabled = false;
                             return;
@@ -849,12 +851,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         saveMemoLocalEx(detail, category, formattedTime);
                     }
                 } catch (e) {
-                    console.error('スプレッドシート上書き保存に失敗しました。ローカルのみで保存します。', e);
-                    if (isEdit) {
-                        editMemoLocal(currentEditingMemoId, detail, category);
-                    } else {
-                        saveMemoLocalEx(detail, category, formattedTime);
-                    }
+                    console.error('伝達事項の共有先への保存を確認できませんでした。', e);
+                    alert('通信エラーのため、共有先への保存を確認できませんでした。入力内容は残しています。\n通信状態を確認し、再送する前に伝達履歴で登録済みでないか確認してください。');
+                    memoEditSave.textContent = isEdit ? '更新する' : '保存する';
+                    memoEditSave.disabled = false;
+                    return;
                 }
             } else {
                 if (isEdit) {
