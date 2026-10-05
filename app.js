@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 空欄の場合は、自動的でブラウザの「ローカルストレージ（localStorage）」を使用した100%完動する模擬（モック）システムとして動作します。
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyQaDWFjRk7c-XASZWAucjb3oGbQDKvtHze9JlucFbETIN33cin37n-l8ys7zVub4Gc/exec'; 
 
+    window.improvementPortal?.configure(GAS_API_URL);
+
     function buildAuthenticatedGasUrl(params) {
         const url = new URL(GAS_API_URL);
         Object.entries(params || {}).forEach(([key, value]) => {
@@ -95,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // セッションが無効、または期限切れの場合はクリアしてロック
             sessionStorage.removeItem('arena_is_unlocked');
+            window.improvementPortal?.logout();
             sessionStorage.removeItem('arena_unlocked_at');
             sessionStorage.removeItem('arena_user_name');
             sessionStorage.removeItem('arena_passcode');
@@ -152,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (resData) {
                     if (resData && resData.success) {
                         success = true;
+                        window.improvementPortal?.authenticated(resData.portalSession);
                         userName = resData.userName || loginId;
                     } else {
                         success = false;
@@ -256,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnLockManual) {
         btnLockManual.addEventListener('click', () => {
             sessionStorage.removeItem('arena_is_unlocked');
+            window.improvementPortal?.logout();
             sessionStorage.removeItem('arena_unlocked_at');
             sessionStorage.removeItem('arena_user_name');
             sessionStorage.removeItem('arena_passcode');
