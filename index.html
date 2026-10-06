@@ -117,7 +117,6 @@
                     
                     <!-- 【タブ1：ホーム】 -->
                     <section id="tab-home" class="tab-content active">
-                        <button type="button" id="btn-improvement" class="cyber-btn emerald-theme" style="width:100%;margin-bottom:16px;padding:14px;">📷 業務改善レポートを開く</button>
 
                         <!-- 1. 伝達事項テキストエリア（重要ピン留め＆通常2段組） -->
                         <div class="section-container">
@@ -215,6 +214,15 @@
                                         <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
                                     </div>
                                     <span class="btn-title">社内消費・個人購入</span>
+                                </button>
+                                
+                                <!-- 業務改善：日報のログインを引き継ぐ -->
+                                <button type="button" class="action-btn emerald-theme" id="btn-improvement" data-action="業務改善">
+                                    <div class="btn-glow"></div>
+                                    <div class="btn-icon">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3 7 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3l-2-2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+                                    </div>
+                                    <span class="btn-title">業務改善</span>
                                 </button>
                             </div>
                         </div>
@@ -907,6 +915,6 @@
     </div>
     
     <script src="daily-improvement.js?v=20261006_1"></script>
-    <script src="app.js?v=20261006_1"></script>
+    <script src="app.js?v=20261006_2"></script>
 </body>
 </html>
