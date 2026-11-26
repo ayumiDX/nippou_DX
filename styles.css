@@ -3223,3 +3223,19 @@ input[type="number"] {
 #memo-edit-overlay .modal-body > .cyber-form-group:first-child { flex: 1; display: flex; flex-direction: column; }
 #input-memo-detail { flex: 1; min-height: 280px; }
 .entry-form-modal .modal-footer { gap: 12px; }
+
+/* Separate pachinko cell and cassette cleaning states. */
+.layout-machine { height: 56px; }
+.machine-cleaning-label { font-size: 8px; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+.layout-machine.cleaned-cell { background: #cce5ff !important; color: #102c48; border-color: #2475c7 !important; }
+.layout-machine.cleaned-cassette { background: #ffddb1 !important; color: #442600; border-color: #c66b00 !important; }
+.layout-machine.cleaned-cell.cleaned-cassette { background: linear-gradient(90deg, #cce5ff 50%, #ffddb1 50%) !important; color: #172334; }
+.layout-machine.has-trouble { outline: 2px solid #ff0055; outline-offset: 1px; }
+.machine-cleaning-dialog { box-sizing: border-box; width: min(92vw, 420px); border: 1px solid #718096; border-radius: 16px; padding: 22px; color: #172334; background: #fff; }
+.machine-cleaning-dialog::backdrop { background: rgba(0,0,0,.65); }
+.machine-cleaning-dialog p { font-size: 13px; line-height: 1.6; }
+.machine-cleaning-dialog label { display: flex; align-items: center; gap: 10px; padding: 14px 0; }
+.machine-cleaning-dialog input { width: 22px; height: 22px; }
+.machine-cleaning-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.machine-cleaning-actions button { min-height: 44px; padding: 8px 16px; cursor: pointer; }
+#cleaning-canvas-progress-badge { white-space: normal; }
