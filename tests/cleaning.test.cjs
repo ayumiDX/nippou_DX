@@ -16,7 +16,7 @@ test('save persists dual status; failure retains previous record',async()=>{
  let fail=false,posted,alerted=false;
  const c=vm.createContext({cleaningSavePending:false,btnCleaningReset:{},globalCassetteCleanings:records,
  sessionStorage:{getItem:()=> '担当'},localStorage:{setItem:()=>{}},cleaningDateInput:{value:'2026-11-26'},
- GAS_API_URL:'mock', URLSearchParams,Date,console,renderStoreLayout:()=>{},updateCleaningProgressUI:()=>{},
+ syncCleaningDate:()=>({day:'2026-11-26',time:'12:00'}), GAS_API_URL:'mock', URLSearchParams,Date,console,renderStoreLayout:()=>{},updateCleaningProgressUI:()=>{},
  alert:()=>{alerted=true},fetch:async(u,o)=>{posted=o.body;return {ok:!fail,json:async()=>({success:true})}}});
  vm.runInContext(save,c);
  await c.saveMachineCleaning(161,'セル・カセット');
@@ -24,4 +24,5 @@ test('save persists dual status; failure retains previous record',async()=>{
  fail=true;await c.saveMachineCleaning(161,'未');
  assert.equal(records[0].status,'セル・カセット');assert.equal(alerted,true);assert.equal(c.cleaningSavePending,false);
 });
+
 

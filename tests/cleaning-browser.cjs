@@ -25,14 +25,17 @@ for(const width of [390,320,1280]){
  return route.fulfill({json:url.searchParams.get('action')==='getCassetteCleanings'?rows:[]});
  }return route.abort();
  });
- await page.addInitScript(()=>{sessionStorage.setItem('arena_is_unlocked','true');sessionStorage.setItem('arena_unlocked_at',String(Date.now()));sessionStorage.setItem('arena_passcode','test');});
+ await page.addInitScript(()=>{localStorage.setItem('arena_cassette_cleaning_date','2026-08-30');sessionStorage.setItem('arena_is_unlocked','true');sessionStorage.setItem('arena_unlocked_at',String(Date.now()));sessionStorage.setItem('arena_passcode','test');});
  await page.goto('https://app.test/');
  await page.locator('#btn-trigger-cleaning-canvas').click();
+ const today=await page.evaluate(()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo'}).format(new Date()));
+ assert.equal(await page.locator('#cleaning-date-input').inputValue(),today);
  await page.locator('#layout-mach-161').click();
  await page.locator('[name=cell]').check();
  await page.locator('#machine-cleaning-dialog button[value=save]').click();
  await page.waitForFunction(()=>document.querySelector('#layout-mach-161').classList.contains('cleaned-cell'));
  assert.equal(rows[160].status,'セル');
+ assert(rows[160].timestamp.startsWith(today.replaceAll('-','/')));
  await page.locator('#layout-mach-161').click();
  assert(await page.locator('[name=cell]').isChecked());
  await page.locator('[name=cassette]').check();
@@ -64,4 +67,5 @@ for(const width of [390,320,1280]){
 }
 }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});
+
 

@@ -941,12 +941,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const cleaningCanvasScrollContainer = document.getElementById('cleaning-canvas-scroll-container');
     const cleaningDateInput = document.getElementById('cleaning-date-input');
 
-    if (cleaningDateInput) {
-        cleaningDateInput.addEventListener('change', () => {
-            if (cleaningDateInput.value) {
-                localStorage.setItem('arena_cassette_cleaning_date', cleaningDateInput.value);
-            }
-        });
+    function cleaningJapanDateTime(now = new Date()) {
+        const parts = new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+        }).formatToParts(now);
+        const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+        return { day: `${values.year}-${values.month}-${values.day}`, time: `${values.hour}:${values.minute}` };
+    }
+
+    let cleaningViewDay = '';
+    function syncCleaningDate(forceToday = false) {
+        const current = cleaningJapanDateTime();
+        if (cleaningDateInput && (forceToday || cleaningViewDay !== current.day || !cleaningDateInput.value)) {
+            cleaningDateInput.value = current.day;
+        }
+        cleaningViewDay = current.day;
+        return current;
     }
 
     const layoutData = [
@@ -1047,20 +1058,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (appNavBar) appNavBar.style.display = 'none';
         }
 
-        // 最後に選択した清掃日を保持し、未設定時だけ本日を初期値にする。
-        if (cleaningDateInput && !cleaningDateInput.value) {
-            const savedDate = localStorage.getItem('arena_cassette_cleaning_date');
-            if (savedDate) {
-                cleaningDateInput.value = savedDate;
-            } else {
-                const today = new Date();
-                const yyyy = today.getFullYear();
-                const mm = String(today.getMonth() + 1).padStart(2, '0');
-                const dd = String(today.getDate()).padStart(2, '0');
-                cleaningDateInput.value = `${yyyy}-${mm}-${dd}`;
-                localStorage.setItem('arena_cassette_cleaning_date', cleaningDateInput.value);
-            }
-        }
+        // 画面を開くたび日本時間の本日に戻す。過去の選択日を引き継がない。
+        syncCleaningDate(true);
 
         fetchCassetteCleanings();
     }
@@ -1322,7 +1321,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (save) {
                 const status = cellChecked && cassetteChecked ? 'セル・カセット' :
                     cellChecked ? 'セル' : cassetteChecked ? 'カセット' : '未';
-                if (status !== old.status) await saveMachineCleaning(num, status);
+                await saveMachineCleaning(num, status);
             }
             document.getElementById(`layout-mach-${num}`)?.focus();
         });
@@ -1334,11 +1333,9 @@ document.addEventListener('DOMContentLoaded', () => {
         cleaningSavePending = true;
         if (btnCleaningReset) btnCleaningReset.disabled = true;
         const executor = sessionStorage.getItem('arena_user_name') || 'スタッフ';
-        const now = new Date();
-        const date = cleaningDateInput && cleaningDateInput.value ?
-            cleaningDateInput.value.replace(/-/g, '/') :
-            `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
-        const timestamp = status === '未' ? '' : `${date} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        const current = syncCleaningDate();
+        const date = (cleaningDateInput && cleaningDateInput.value ? cleaningDateInput.value : current.day).replace(/-/g, '/');
+        const timestamp = status === '未' ? '' : `${date} ${current.time}`;
         try {
             if (GAS_API_URL) {
                 const response = await fetch(GAS_API_URL, {
