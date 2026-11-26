@@ -1243,158 +1243,139 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLayoutTroubles();
     }
 
+
+    function cleaningState(status) {
+        return { cell: status === 'セル' || status === 'セル・カセット',
+            cassette: status === 'カセット' || status === 'セル・カセット',
+            legacy: status === '済' };
+    }
+
     function createMachineCell(num) {
         const cell = document.createElement('div');
         cell.className = `layout-machine ${getRateClass(num)}`;
         cell.id = `layout-mach-${num}`;
-        cell.setAttribute('data-machine-id', num);
-
-        // メモリ上のデータから「済」であればクラスを適用
-        const cleanInfo = globalCassetteCleanings.find(item => item.machineId === num);
-        let dateLabel = '';
-        if (cleanInfo && cleanInfo.status === '済') {
-            cell.classList.add('cleaned');
-            cell.setAttribute('title', `清掃済: ${cleanInfo.executor || 'スタッフ'} (${cleanInfo.timestamp || ''})`);
-
-            // タイムスタンプから月/日を抽出する (例: "2026/06/19 12:30" -> "6/19")
-            if (cleanInfo.timestamp) {
-                const parts = cleanInfo.timestamp.split(' ')[0].split('/');
-                if (parts.length === 3) {
-                    dateLabel = `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
-                }
-            }
+        cell.dataset.machineId = num;
+        const info = globalCassetteCleanings.find(item => Number(item.machineId) === num);
+        const state = cleaningState(info && info.status);
+        const label = state.cell && state.cassette ? 'セル・カセット' :
+            state.cell ? 'セル' : state.cassette ? 'カセット' :
+            state.legacy ? (num > 160 ? '従来済' : '済') : '';
+        if (state.cell) cell.classList.add('cleaned-cell');
+        if (state.cassette) cell.classList.add('cleaned-cassette');
+        if (state.legacy) cell.classList.add('cleaned');
+        const number = document.createElement('span');
+        number.className = 'machine-num';
+        number.textContent = num;
+        cell.appendChild(number);
+        if (label) {
+            const tag = document.createElement('span');
+            tag.className = 'machine-cleaning-label';
+            tag.textContent = label;
+            cell.appendChild(tag);
+            const date = document.createElement('span');
+            date.className = 'machine-date';
+            const match = String(info.timestamp || '').match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+            date.textContent = match ? `${Number(match[2])}/${Number(match[3])}` : '';
+            cell.appendChild(date);
         }
-
-        if (dateLabel) {
-            cell.innerHTML = `<span class="machine-num">${num}</span><span class="machine-date">${dateLabel}</span>`;
-        } else {
-            cell.innerHTML = `<span class="machine-num">${num}</span>`;
-        }
-
-        // 現在ハイライト対象の台であればクラスを適用
-        if (currentHighlightedMachineId === num) {
-            cell.classList.add('highlight-bounce');
-        }
-
-        cell.addEventListener('click', () => {
-            handleMachineClick(num);
+        cell.title = `${num}番台：${label || '未清掃'} ${info ? info.executor || '' : ''} ${info ? info.timestamp || '' : ''}`;
+        cell.setAttribute('role', 'button');
+        cell.tabIndex = 0;
+        cell.setAttribute('aria-label', cell.title);
+        if (currentHighlightedMachineId === num) cell.classList.add('highlight-bounce');
+        cell.addEventListener('click', () => handleMachineClick(num));
+        cell.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMachineClick(num); }
         });
-
         return cell;
     }
 
+    let cleaningSavePending = false;
     async function handleMachineClick(num) {
-        // ハイライト状態をクリア
-        currentHighlightedMachineId = null;
-        document.querySelectorAll('.layout-machine.highlight-bounce').forEach(c => {
-            c.classList.remove('highlight-bounce');
-        });
-
-        const cell = document.getElementById(`layout-mach-${num}`);
-        if (!cell) return;
-
-        const isCleaned = cell.classList.contains('cleaned');
-        const newStatus = isCleaned ? '未' : '済';
-        
-        const executor = sessionStorage.getItem('arena_user_name') || 'スタッフ';
-        const now = new Date();
-
-        // 選択された日付を読み込み、現在時刻と結合する
-        const dateInput = document.getElementById('cleaning-date-input');
-        let dateStr = '';
-        if (dateInput && dateInput.value) {
-            // YYYY-MM-DD -> YYYY/MM/DD
-            dateStr = dateInput.value.replace(/-/g, '/');
-        } else {
-            dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+        if (cleaningSavePending || document.getElementById('machine-cleaning-dialog')) return;
+        const old = globalCassetteCleanings.find(item => Number(item.machineId) === num) ||
+            { machineId: num, status: '未', executor: '', timestamp: '' };
+        if (num <= 160) {
+            await saveMachineCleaning(num, old.status === '済' ? '未' : '済');
+            return;
         }
-        const timestamp = `${dateStr} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-
-        // 1. ローカルを即時反映
-        globalCassetteCleanings = globalCassetteCleanings.map(item => {
-            if (item.machineId === num) {
-                return { ...item, status: newStatus, executor: executor, timestamp: timestamp };
+        const state = cleaningState(old.status);
+        const dialog = document.createElement('dialog');
+        dialog.id = 'machine-cleaning-dialog';
+        dialog.className = 'machine-cleaning-dialog';
+        dialog.setAttribute('aria-labelledby', 'machine-cleaning-title');
+        dialog.innerHTML = `<form method="dialog">
+            <h3 id="machine-cleaning-title">${num}番台の清掃状況</h3>
+            <p>完了した清掃にチェックを入れてください。</p>
+            ${state.legacy ? '<p>従来の清掃済み記録があります。実施した種類を確認して選択してください。</p>' : ''}
+            <label><input type="checkbox" name="cell" ${state.cell ? 'checked' : ''}> 🔵 セル清掃</label>
+            <label><input type="checkbox" name="cassette" ${state.cassette ? 'checked' : ''}> 🟠 カセット清掃</label>
+            <p>両方のチェックを外して保存すると未清掃に戻ります。</p>
+            <div class="machine-cleaning-actions"><button value="cancel">キャンセル</button><button value="save">保存する</button></div>
+        </form>`;
+        document.body.appendChild(dialog);
+        dialog.addEventListener('close', async () => {
+            const cellChecked = dialog.querySelector('[name="cell"]').checked;
+            const cassetteChecked = dialog.querySelector('[name="cassette"]').checked;
+            const save = dialog.returnValue === 'save';
+            dialog.remove();
+            if (save) {
+                const status = cellChecked && cassetteChecked ? 'セル・カセット' :
+                    cellChecked ? 'セル' : cassetteChecked ? 'カセット' : '未';
+                if (status !== old.status) await saveMachineCleaning(num, status);
             }
-            return item;
+            document.getElementById(`layout-mach-${num}`)?.focus();
         });
-        localStorage.setItem('arena_cassette_cleanings', JSON.stringify(globalCassetteCleanings));
-        
-        if (newStatus === '済') {
-            cell.classList.add('cleaned');
-            cell.setAttribute('title', `清掃済: ${executor} (${timestamp})`);
-
-            // タイムスタンプから月/日を抽出して表示
-            const parts = timestamp.split(' ')[0].split('/');
-            const dateLabel = parts.length === 3 ? `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}` : '';
-            cell.innerHTML = `<span class="machine-num">${num}</span><span class="machine-date">${dateLabel}</span>`;
-        } else {
-            cell.classList.remove('cleaned');
-            cell.removeAttribute('title');
-            
-            // 未清掃に戻した時は日付を消去し、台番号のみに戻す
-            cell.innerHTML = `<span class="machine-num">${num}</span>`;
-        }
-        updateCleaningProgressUI();
-
-        // 2. GASへ非同期でPOST
-        if (GAS_API_URL) {
-            try {
-                const response = await fetch(GAS_API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: new URLSearchParams({
-                        action: 'updateCassetteCleaning',
-                        machineId: num,
-                        status: newStatus,
-                        executor: executor,
-                        timestamp: timestamp,
-                        passcode: sessionStorage.getItem('arena_passcode') || ''
-                    })
-                });
-                
-                if (response.ok) {
-                    const resData = await response.json();
-                    if (resData.status === 'error' || resData.success === false) {
-                        alert(`エラー: ${resData.message || 'サーバー同期失敗。元の状態に戻します。'}`);
-                        rollbackStatus(num, isCleaned ? '済' : '未');
-                    }
-                } else {
-                    throw new Error('通信エラー');
-                }
-            } catch (err) {
-                console.error('GAS清掃更新失敗:', err);
-            }
-        }
+        dialog.showModal();
     }
 
-    function rollbackStatus(num, oldStatus) {
-        globalCassetteCleanings = globalCassetteCleanings.map(item => {
-            if (item.machineId === num) {
-                return { ...item, status: oldStatus };
+    async function saveMachineCleaning(num, status) {
+        if (cleaningSavePending) return;
+        cleaningSavePending = true;
+        if (btnCleaningReset) btnCleaningReset.disabled = true;
+        const executor = sessionStorage.getItem('arena_user_name') || 'スタッフ';
+        const now = new Date();
+        const date = cleaningDateInput && cleaningDateInput.value ?
+            cleaningDateInput.value.replace(/-/g, '/') :
+            `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+        const timestamp = status === '未' ? '' : `${date} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        try {
+            if (GAS_API_URL) {
+                const response = await fetch(GAS_API_URL, {
+                    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ action: 'updateCassetteCleaning', machineId: num,
+                        status, executor: status === '未' ? '' : executor, timestamp,
+                        passcode: sessionStorage.getItem('arena_passcode') || '' })
+                });
+                if (!response.ok) throw new Error('通信エラー');
+                const result = await response.json();
+                if (result.status === 'error' || result.success === false) throw new Error(result.message || '保存に失敗しました');
             }
-            return item;
-        });
-        localStorage.setItem('arena_cassette_cleanings', JSON.stringify(globalCassetteCleanings));
-        const cell = document.getElementById(`layout-mach-${num}`);
-        if (cell) {
-            if (oldStatus === '済') {
-                cell.classList.add('cleaned');
-            } else {
-                cell.classList.remove('cleaned');
-            }
+            const updated = { machineId: num, status, executor: status === '未' ? '' : executor, timestamp };
+            const index = globalCassetteCleanings.findIndex(item => Number(item.machineId) === num);
+            if (index < 0) globalCassetteCleanings.push(updated);
+            else globalCassetteCleanings[index] = { ...globalCassetteCleanings[index], ...updated };
+            localStorage.setItem('arena_cassette_cleanings', JSON.stringify(globalCassetteCleanings));
+            renderStoreLayout();
+            updateCleaningProgressUI();
+        } catch (error) {
+            alert('清掃状況を保存できませんでした。通信状態を確認して、再度お試しください。');
+            console.error('清掃保存失敗:', error);
+        } finally {
+            cleaningSavePending = false;
+            if (btnCleaningReset) btnCleaningReset.disabled = false;
         }
-        updateCleaningProgressUI();
     }
 
     function updateCleaningProgressUI() {
         const badge = document.getElementById('cleaning-canvas-progress-badge');
         if (!badge) return;
-        
-        const total = 440;
-        const cleanedCount = globalCassetteCleanings.filter(item => item.status === '済').length;
-        badge.textContent = `済 ${cleanedCount}/${total}台`;
+        const pachinko = globalCassetteCleanings.filter(item => Number(item.machineId) > 160);
+        const cells = pachinko.filter(item => cleaningState(item.status).cell).length;
+        const cassettes = pachinko.filter(item => cleaningState(item.status).cassette).length;
+        const slots = globalCassetteCleanings.filter(item => Number(item.machineId) <= 160 && item.status === '済').length;
+        const legacy = pachinko.filter(item => item.status === '済').length;
+        badge.textContent = `セル ${cells}/280・カセット ${cassettes}/280・スロット ${slots}/160${legacy ? '・従来済 ' + legacy : ''}`;
     }
 
     function updateLayoutTroubles() {
@@ -3003,7 +2984,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const actionButtons = document.querySelectorAll('.action-btn');
     actionButtons.forEach(btn => {
-        if (btn.id === 'btn-improvement') return; // 専用のログイン連携に委ねる
+        if (btn.id === 'btn-improvement' || btn.id === 'btn-trigger-cleaning-canvas') return; // 専用画面に委ねる
         btn.addEventListener('click', () => {
             const actionName = btn.getAttribute('data-action');
             if (actionName === 'お願いごと' || actionName === '故障報告' || actionName === '曜日清掃・作業') return; // スライドインSPA画面に委ねる
@@ -3850,3 +3831,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
