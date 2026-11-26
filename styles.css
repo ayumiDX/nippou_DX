@@ -3239,3 +3239,12 @@ input[type="number"] {
 .machine-cleaning-actions { display: flex; justify-content: flex-end; gap: 12px; }
 .machine-cleaning-actions button { min-height: 44px; padding: 8px 16px; cursor: pointer; }
 #cleaning-canvas-progress-badge { white-space: normal; }
+.machine-cleaning-dialog { margin: auto; max-height: 90dvh; overflow-y: auto; }
+.layout-machine.cleaned-cell .machine-num,
+.layout-machine.cleaned-cell .machine-date,
+.layout-machine.cleaned-cassette .machine-num,
+.layout-machine.cleaned-cassette .machine-date { color: inherit; }
+#view-cleaning-canvas .sub-view-header { flex-wrap: wrap; height: auto; flex-shrink: 0; padding-top: 8px; padding-bottom: 8px; gap: 6px 12px; }
+#view-cleaning-canvas .sub-view-header h2 { white-space: nowrap; }
+#cleaning-canvas-progress-badge { flex-basis: 100%; margin-left: 0; font-family: inherit; line-height: 1.6; }
+

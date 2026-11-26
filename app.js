@@ -2984,7 +2984,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const actionButtons = document.querySelectorAll('.action-btn');
     actionButtons.forEach(btn => {
-        if (btn.id === 'btn-improvement') return; // 専用のログイン連携に委ねる
+        if (btn.id === 'btn-improvement' || btn.id === 'btn-trigger-cleaning-canvas') return; // 専用画面に委ねる
         btn.addEventListener('click', () => {
             const actionName = btn.getAttribute('data-action');
             if (actionName === 'お願いごと' || actionName === '故障報告' || actionName === '曜日清掃・作業') return; // スライドインSPA画面に委ねる
@@ -3831,3 +3831,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
